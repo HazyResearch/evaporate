@@ -62,4 +62,16 @@ The ``keys`` in run.sh can be obtained by registering with the LLM provider. For
 
 
 ## Extended write-up
-The extended write-up is included in this Github repository at [this URL](https://github.com/HazyResearch/evaporate/blob/main/technical-report.pdf).
+The extended write-up is included in this Github repository at [this URL](https://github.com/HazyResearch/evaporate/blob/main/technical-report.pdf) and at this link: https://arxiv.org/abs/2304.09433
+
+
+## Citation
+If you use this codebase, or otherwise found our work valuable, please cite:
+```
+@article{arora2023evaporate,
+  title={Language Models Enable Simple Systems for Generating Structured Views of Heterogeneous Data Lakes},
+  author={Arora, Simran and Yang, Brandon and Eyuboglu, Sabri and Narayan, Avanika and Hojel, Andrew and Trummer, Immanuel and R\'e, Christopher},
+  journal={arXiv:2304.09433},
+  year={2023}
+}
+```
