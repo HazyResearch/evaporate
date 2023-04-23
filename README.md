@@ -60,6 +60,8 @@ bash run.sh
 
 The ``keys`` in run.sh can be obtained by registering with the LLM provider. For instance, if you want to run inference with the OpenAI API models, create an account [here](https://openai.com/api/).
 
+The script includes commands for both closed and open IE runs. To walk through the code, look at ``run_profiler.py``. For open IE, the code first uses ``schema_identification.py`` to generate a list of attributes for the schema. Next, the code iterates through this list to perform extraction using ``profiler.py``. As functions are generated in ``profiler.py``, ``evaluate_profiler.py`` is used to score the function outputs against the outputs of directly prompting the LM on the sample documents. 
+
 
 ## Extended write-up
 The extended write-up is included in this Github repository at [this URL](https://github.com/HazyResearch/evaporate/blob/main/technical-report.pdf) and at this link: https://arxiv.org/abs/2304.09433
