@@ -247,7 +247,7 @@ def get_response(
         log_prob = None
         num_tokens = -1
         if 'usage' in response_obj:
-            num_tokens = response_obj['usage']['total_tokens']
+            num_tokens = response_obj['usage'][0]['total_tokens']
     if verbose:
         print("\n***Prompt***\n", prompt)
         print("\n***Response***\n", response)
