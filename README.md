@@ -34,7 +34,7 @@ pip install -e .
 ```
 
 ## Datasets
-The data used in the paper is hosted on HuggingFace's datasets platform: https://huggingface.co/datasets/hazyresearch/evaporate.
+The data used in the paper is hosted on Hugging Face's datasets platform: https://huggingface.co/datasets/hazyresearch/evaporate.
 
 To download the datasets, run the following commands in your terminal:
 ```bash
@@ -64,7 +64,7 @@ The script includes commands for both closed and open IE runs. To walk through t
 
 
 ## Extended write-up
-The extended write-up is included in this Github repository at [this URL](https://github.com/HazyResearch/evaporate/blob/main/technical-report.pdf) and at this link: https://arxiv.org/abs/2304.09433
+The extended write-up is included in this GitHub repository at [this URL](https://github.com/HazyResearch/evaporate/blob/main/technical-report.pdf) and at this link: https://arxiv.org/abs/2304.09433
 
 
 ## Citation
