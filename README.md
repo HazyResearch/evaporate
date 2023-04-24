@@ -19,7 +19,7 @@ Clone as follows:
 # Evaporate code
 git clone git@github.com:HazyResearch/evaporate.git
 cd evaporate
-pip install -r requirements.txt
+pip install -e .
 
 # Weak supervision code
 cd metal-evap
@@ -27,7 +27,7 @@ git submodule init
 git submodule update
 pip install -e .
 
-# Manifest 
+# Manifest (to install from source, which helps you modify the set of supported models. Otherwise, ``setup.py`` installs ``manifest-ml``)
 git clone git@github.com:HazyResearch/manifest.git
 cd manifest
 pip install -e .
