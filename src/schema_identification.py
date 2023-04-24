@@ -55,7 +55,7 @@ def directly_extract_from_chunks_w_value(
                 print("Failed to apply prompt to chunk.")
                 continue
             total_tokens_prompted  += num_toks
-            result = response.split("---")[0].strip("\n")
+            result = result.split("---")[0].strip("\n")
             results = result.split("\n")
             results = [r.strip("-").strip() for r in results]
             results = [r[2:].strip() if len(r) > 2 and r[1] == "." else r for r in results ]
