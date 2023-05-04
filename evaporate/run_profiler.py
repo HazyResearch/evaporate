@@ -390,8 +390,8 @@ def get_experiment_args():
 
     parser.add_argument(
         "--do_end_to_end", 
-        type=bool,
-        default=True,
+        dest='do_end_to_end',
+        action='store_true',
         help="True for OpenIE, False for ClosedIE"
     )
 
@@ -426,8 +426,8 @@ def get_experiment_args():
 
     parser.add_argument(
         "--use_dynamic_backoff",
-        type=bool,
-        default=True,
+        dest='use_dynamic_backoff',
+        action='store_true',
         help="Whether to generate functions or do Evaporate-Direct",
     )
 
