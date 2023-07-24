@@ -4,6 +4,14 @@ _REQUIRED = [
     "tqdm",
     "openai",
     "manifest-ml",
+    'beautifulsoup4',
+    'pandas',
+    'cvxpy',
+    'sklearn',
+    'scikit-learn',
+    'snorkel',
+    'snorkel-metal', 
+    'tensorboardX',
 ]
 
 setup(
