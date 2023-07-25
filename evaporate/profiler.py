@@ -28,9 +28,10 @@ from utils import apply_prompt, get_file_attribute
 from evaluate_profiler import get_topk_scripts_per_field, evaluate
 from profiler_utils import filter_file2chunks, check_vs_train_extractions, clean_function_predictions
 
-import sys
-sys.path.append(f"./weak_supervision/")
-from run_ws import run_ws
+# import sys
+# sys.path.append(f"./weak_supervision/")
+# from evaporate.run_ws import run_ws
+from evaporate.weak_supervision.run_ws import run_ws
 
 class TimeoutException(Exception): pass
 

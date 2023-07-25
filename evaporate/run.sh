@@ -1,7 +1,13 @@
-keys="PLACEHOLDER" # INSERT YOUR API KEY(S) HERE
+# keys="PLACEHOLDER" # INSERT YOUR API KEY(S) HERE
+keys=$(cat ~/data/openai_api_key.txt)
+# echo $keys
+
+cd ~/evaporate/evaporate
+# conda activate evaporate
+conda activate maf
 
 # evaporate code closed ie
-python run_profiler.py \
+python ~/evaporate/evaporate/run_profiler.py \
     --data_lake fda_510ks \
     --do_end_to_end False \
     --num_attr_to_cascade 50 \
@@ -12,7 +18,7 @@ python run_profiler.py \
     --KEYS ${keys}
 
 # evaporate code open ie
-python run_profiler.py \
+python ~/evaporate/evaporate/run_profiler.py \
     --data_lake fda_510ks \
     --do_end_to_end True \
     --num_attr_to_cascade 1 \

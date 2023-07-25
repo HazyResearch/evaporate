@@ -9,8 +9,9 @@ Code, datasets, and extended writeup for paper "Language Models Enable Simple Sy
 ## Setup
 
 We encourage the use of conda environments:
-```
-conda create --name evaporate python=3.8
+```bash
+#conda create --name evaporate python=3.8
+conda create --name evaporate python=3.10
 conda activate evaporate
 ```
 
@@ -18,11 +19,11 @@ Clone as follows:
 ```bash
 # Evaporate code
 git clone git@github.com:HazyResearch/evaporate.git
-cd evaporate
+cd ~/evaporate
 pip install -e .
 
 # Weak supervision code
-cd metal-evap
+cd ~/evaporate/metal-evap
 git submodule init
 git submodule update
 pip install -e .

@@ -1,7 +1,11 @@
 import argparse
 import os
+from pathlib import Path
 
-def get_args(database_name, BASE_DATA_DIR = "/data/evaporate/"):
+# original
+# BASE_DATA_DIR = "/data/evaporate/"
+
+def get_args(database_name, BASE_DATA_DIR = Path("~/data/evaporate/")):
     
     parser = argparse.ArgumentParser(
         "LLM explorer.",

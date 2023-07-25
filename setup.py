@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import find_packages, setup
 
 _REQUIRED = [
     "tqdm",
@@ -19,6 +19,6 @@ setup(
     version="0.0.1",
     description="evaporating data lakes with foundation models",
     author="simran brandon sabri avanika andrew immanuel chris",
-    packages=["evaporate"],
+    packages=find_packages('evaporate'),  # imports all modules/folders with  __init__.py & python files
     install_requires=_REQUIRED,
 )

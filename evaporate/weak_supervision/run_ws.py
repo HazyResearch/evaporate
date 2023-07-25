@@ -7,6 +7,8 @@ import random
 import cvxpy as cp
 import scipy as sp
 from tqdm import tqdm
+from pdb import set_trace as st
+st()
 from methods import Aggregator
 from metal.label_model import LabelModel
 from collections import defaultdict, Counter
