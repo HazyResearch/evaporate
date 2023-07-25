@@ -5,7 +5,7 @@ from pathlib import Path
 # original
 # BASE_DATA_DIR = "/data/evaporate/"
 
-def get_args(database_name, BASE_DATA_DIR = Path("~/data/evaporate/")):
+def get_args(database_name, BASE_DATA_DIR = Path("~/data/evaporate/data/").expanduser() ):
     
     parser = argparse.ArgumentParser(
         "LLM explorer.",
@@ -59,13 +59,24 @@ def get_args(database_name, BASE_DATA_DIR = Path("~/data/evaporate/")):
         help="Topic of the data lake",
     )
 
+    # CONSTANTS = {
+    #     "fda_510ks": {
+    #         "data_dir": os.path.join(BASE_DATA_DIR, "fda-ai-pmas/510k/"),
+    #         "database_name": "fda_510ks",
+    #         "cache_dir": ".cache/fda_510ks/",
+    #         "generative_index_path": os.path.join(BASE_DATA_DIR, "generative_indexes/fda_510ks/"),
+    #         "gold_extractions_file": os.path.join(BASE_DATA_DIR, "ground_truth/fda_510ks_gold_extractions.json"),
+    #         "topic": "fda 510k device premarket notifications",
+    #     },
+    # }
+
     CONSTANTS = {
         "fda_510ks": {
-            "data_dir": os.path.join(BASE_DATA_DIR, "fda-ai-pmas/510k/"),
+            "data_dir": str(BASE_DATA_DIR / "fda_510ks/data/evaporate/fda-ai-pmas/510k"),
             "database_name": "fda_510ks",
             "cache_dir": ".cache/fda_510ks/",
-            "generative_index_path": os.path.join(BASE_DATA_DIR, "generative_indexes/fda_510ks/"),
-            "gold_extractions_file": os.path.join(BASE_DATA_DIR, "ground_truth/fda_510ks_gold_extractions.json"),
+            "generative_index_path": str(BASE_DATA_DIR / "generative_indexes/fda_510ks/"),
+            "gold_extractions_file": str(BASE_DATA_DIR / "ground_truth/fda_510ks_gold_extractions.json"),
             "topic": "fda 510k device premarket notifications",
         },
     }

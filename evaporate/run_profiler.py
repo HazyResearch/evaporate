@@ -469,6 +469,7 @@ def main():
     for k in vars(experiment_args):
         setattr(profiler_args, k,  getattr(experiment_args, k))
 
+    print(profiler_args)
     run_experiment(profiler_args)
 
 
