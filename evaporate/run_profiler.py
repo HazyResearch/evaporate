@@ -20,20 +20,23 @@ random.seed(0)
 def get_data_lake_info(args, data_lake, DATA_DIR = "/data/evaporate"):
     extractions_file = None
     
-    if data_lake == "fda_510ks":
-        DATA_DIR = args.data_dir
-        file_groups = os.listdir(DATA_DIR)
-        if not DATA_DIR.endswith("/"):
-            DATA_DIR += "/"
-        file_groups = [f"{DATA_DIR}{file_group}" for file_group in file_groups if not file_group.startswith(".")]
-        full_file_groups = file_groups.copy()
-        extractions_file = args.gold_extractions_file
-        parser = "txt"
+    # if data_lake == "fda_510ks":
+    DATA_DIR = args.data_dir
+    file_groups = os.listdir(DATA_DIR)
+    if not DATA_DIR.endswith("/"):
+        DATA_DIR += "/"
+    file_groups = [f"{DATA_DIR}{file_group}" for file_group in file_groups if not file_group.startswith(".")]
+    full_file_groups = file_groups.copy()
+    extractions_file = args.gold_extractions_file
+    parser = "txt"
 
     return file_groups, extractions_file, parser, full_file_groups
 
 
 def chunk_files(file_group, parser, chunk_size, remove_tables, max_chunks_per_file, body_only):
+    print(f'Chunking files in func: {chunk_files=}')
+    print(f'{parser=}')
+    print(f'{chunk_size=}')
     file2chunks = {}
     file2contents = {}
     for file in tqdm(file_group, total=len(file_group), desc="Chunking files"):
@@ -54,8 +57,11 @@ def chunk_files(file_group, parser, chunk_size, remove_tables, max_chunks_per_fi
 
 # chunking & preparing data
 def prepare_data(profiler_args, file_group, parser = "html"):
+    print(f'Preparing data in func: {prepare_data=}')
     data_lake = profiler_args.data_lake
     if profiler_args.body_only:
+        print(profiler_args.body_only)
+        print('I think this does only the body an html based on profiler_args')
         body_only = profiler_args.body_only
         suffix = f"_bodyOnly{body_only}"
     else:
@@ -87,7 +93,9 @@ def prepare_data(profiler_args, file_group, parser = "html"):
 
 
 def get_run_string(
-    data_lake, today, file_groups, profiler_args, do_end_to_end, 
+    data_lake, today, 
+    file_groups, profiler_args, 
+    do_end_to_end, 
     train_size, dynamicbackoff, models
 ):
     body = profiler_args.body_only # Baseline systems only operate on the HTML body
@@ -231,6 +239,7 @@ def run_experiment(profiler_args):
 
     print(f"Data lake")
     today = datetime.datetime.today().strftime("%m%d%Y") 
+    print(f'{today=}')
     
     setattr(profiler_args, 'chunk_size', 3000)
     _, _, _, _, args = get_structure(data_lake)
@@ -485,12 +494,14 @@ def main():
     # }
             
     for k, v in model_dict.items():
+        print(f'model dict: {k=} {v=}')
         setattr(profiler_args, k, v)
 
     for k in vars(experiment_args):
+        print(f'experiment args: {k=}')
         setattr(profiler_args, k,  getattr(experiment_args, k))
 
-    # print(profiler_args)
+    print(f'{profiler_args=}')
     run_experiment(profiler_args)
 
 

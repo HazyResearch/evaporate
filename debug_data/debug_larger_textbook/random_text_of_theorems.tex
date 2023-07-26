@@ -1,0 +1,154 @@
+\documentclass{article}
+\usepackage{amsmath,amsthm,amsfonts}
+
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{corollary}{Corollary}[theorem]
+\newtheorem{lemma}[theorem]{Lemma}
+
+% generated from chatgpt gpt4: https://chat.openai.com/share/c4e54d91-eec3-4fd5-ba69-3ce4afb049fc
+
+\begin{document}
+
+%% --------------------
+\section{Vectors and Matrices}
+In this section, we introduce the fundamental objects in linear algebra: vectors and matrices.
+We also consider one of the basic operations with matrices: matrix addition.
+
+\begin{definition}[Vector]
+A vector is a mathematical object that has magnitude and direction, and which adheres to the laws of addition and scalar multiplication.
+\end{definition}
+
+\begin{definition}[Matrix]
+A matrix is a rectangular array of numbers arranged in rows and columns.
+\end{definition}
+
+\begin{theorem}[Matrix Addition]
+The sum of two matrices A and B, each of size m x n, is another matrix C = A + B, also of size m x n.
+\end{theorem}
+
+\begin{proof}
+If A = [a_{ij}] and B = [b_{ij}], then their sum C = [c_{ij}] is given by c_{ij} = a_{ij} + b_{ij} for each i and j.
+\end{proof}
+
+%% --------------------
+\section{Linear Independence}
+This section delves into the important concept of linear independence, which is crucial for understanding the structure of vector spaces.
+
+\begin{definition}[Linear Independence]
+A set of vectors is said to be linearly independent if no vector in the set can be expressed as a linear combination of the other vectors.
+\end{definition}
+
+\begin{theorem}[Linear Dependence Lemma]
+If a set of vectors {v_1, ..., v_n} in a vector space V is linearly dependent and v_1 is not the zero vector, then there exists j such that v_j is a linear combination of the preceding vectors v_1, ..., v_{j-1}.
+\end{theorem}
+
+\begin{proof}
+Since the set is linearly dependent, there exist scalars a_1, ..., a_n, not all zero, such that a_1*v_1 + ... + a_n*v_n = 0. If a_1 = ... = a_{j-1} = 0 for some j, then a_j*v_j + ... + a_n*v_n = 0 and a_j != 0, therefore v_j = - (a_{j+1}/a_j) * v_{j+1} - ... - (a_n/a_j) * v_n, expressing v_j as a linear combination of the following vectors.
+\end{proof}
+
+%% --------------------
+\section{Basis and Dimension}
+In this section, we delve into the notion of a basis for a vector space, which provides a minimal spanning set for the space. We also discuss the concept of the dimension of a vector space, which is intrinsically tied to its basis.
+
+\begin{definition}[Basis]
+A basis for a vector space V is a set of vectors that is linearly independent and spans V.
+\end{definition}
+
+\begin{theorem}[Basis Theorem]
+Let V be a vector space and let B be a finite subset of V. Then B is a basis for V if and only if every vector in V can be written in exactly one way as a linear combination of vectors in B.
+\end{theorem}
+
+\begin{proof}
+If B is a basis, by definition, every vector in V can be written as a linear combination of vectors in B (B spans V). Further, these combinations are unique (B is linearly independent). Conversely, if every vector in V can be uniquely expressed as a combination of vectors in B, then B spans V and is linearly independent, hence B is a basis.
+\end{proof}
+
+%% --------------------
+\section{Rank and Nullity}
+This section explores the key concepts of rank and nullity of a matrix, which are vital for understanding the structure of the solution space of a system of linear equations.
+
+\begin{definition}[Rank]
+The rank of a matrix is the maximum number of linearly independent row vectors in the matrix.
+\end{definition}
+
+\begin{definition}[Nullity]
+The nullity of a matrix is the dimension of the null space of a matrix, which is the set of all solutions of the homogeneous equation Ax = 0.
+\end{definition}
+
+\begin{theorem}[Rank-Nullity Theorem]
+For any m x n matrix A, the sum of the rank of A and the nullity of A equals n, the number of columns in A.
+\end{theorem}
+
+\begin{proof}
+The rank of a matrix is the dimension of the column space, while the nullity is the dimension of the null space. The column space and the null space are both subspaces of R^n, and the dimensions of these subspaces add up to n, hence the rank-nullity theorem.
+\end{proof}
+
+%% --------------------
+\section{Eigenvalues and Eigenvectors}
+This section focuses on the powerful concepts of eigenvalues and eigenvectors, which have wide-ranging applications in many areas of science and engineering.
+
+\begin{definition}[Eigenvalue]
+An eigenvalue of a square matrix A is a scalar λ such that the equation Ax = λx has a non-zero solution.
+\end{definition}
+
+\begin{definition}[Eigenvector]
+An eigenvector of a square matrix A is a non-zero vector x such that Ax = λx for some scalar λ.
+\end{definition}
+
+\begin{theorem}[Characteristic Equation]
+A scalar λ is an eigenvalue of a matrix A if and only if it is a root of the characteristic equation det(A - λI) = 0.
+\end{theorem}
+
+\begin{proof}
+Let λ be an eigenvalue of A. Then there exists a non-zero vector x such that Ax = λx, or equivalently, (A - λI)x = 0. This equation has a non-zero solution x if and only if the matrix A - λI is singular, which is equivalent to det(A - λI) = 0. Hence, λ is a root of the characteristic equation.
+\end{proof}
+
+\begin{definition}[Determinant]
+The determinant is a special number that can be calculated from a square matrix.
+\end{definition}
+
+\begin{theorem}[Determinant of a 2x2 Matrix]
+The determinant of a 2x2 matrix $A = \begin{pmatrix} a & b \\ c & d \end{pmatrix}$ is given by $det(A) = ad - bc$.
+\end{theorem}
+
+\begin{proof}
+This is derived from the definition of the determinant for a 2x2 matrix.
+\end{proof}
+
+\begin{theorem}[Determinant of a Product]
+The determinant of the product of two square matrices is equal to the product of their determinants. That is, for any two n x n matrices A and B, $det(AB) = det(A) \cdot det(B)$.
+\end{theorem}
+
+\begin{proof}
+This proof is nontrivial and involves concepts such as the Leibniz formula for determinants, the permutation of indices, and the properties of the sign of a permutation. It is therefore not included here.
+\end{proof}
+
+%% --------------------
+\section{Orthogonality}
+In the final section, we delve into the concept of orthogonality, which is central to many important results in linear algebra, including the process of orthogonalization and the notion of orthogonal complements.
+
+\begin{definition}[Orthogonal]
+Two vectors are orthogonal if their dot product equals zero.
+\end{definition}
+
+\begin{theorem}[Orthogonal Complement]
+The orthogonal complement of a subspace W of a vector space V is the set of all vectors in V that are orthogonal to every vector in W.
+\end{theorem}
+
+\begin{proof}
+The orthogonal complement is defined in terms of orthogonality, so there is no need for a proof.
+\end{proof}
+
+\begin{definition}[Orthonormal Basis]
+An orthonormal basis for an inner product space V is a basis for V such that the basis vectors are orthogonal and of unit length.
+\end{definition}
+
+\begin{theorem}[Gram-Schmidt Process]
+Any independent set of vectors can be transformed into an orthonormal basis using the Gram-Schmidt process.
+\end{theorem}
+
+\begin{proof}
+This proof involves the Gram-Schmidt process itself and is constructive: each vector in the original set is orthogonalized by subtracting the orthogonal projections onto the previous vectors, and then normalized.
+\end{proof}
+
+\end{document}

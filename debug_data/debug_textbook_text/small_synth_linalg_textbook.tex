@@ -1,0 +1,50 @@
+\documentclass{article}
+\usepackage{amsmath,amsthm,amsfonts}
+
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{corollary}{Corollary}[theorem]
+\newtheorem{lemma}[theorem]{Lemma}
+
+% generated from chatgpt gpt4: https://chat.openai.com/share/c4e54d91-eec3-4fd5-ba69-3ce4afb049fc
+
+\begin{document}
+
+%% --------------------
+\section{Vectors and Matrices}
+In this section, we introduce the fundamental objects in linear algebra: vectors and matrices.
+We also consider one of the basic operations with matrices: matrix addition.
+
+\begin{definition}[Vector]
+A vector is a mathematical object that has magnitude and direction, and which adheres to the laws of addition and scalar multiplication.
+\end{definition}
+
+\begin{definition}[Matrix]
+A matrix is a rectangular array of numbers arranged in rows and columns.
+\end{definition}
+
+\begin{theorem}[Matrix Addition]
+The sum of two matrices A and B, each of size m x n, is another matrix C = A + B, also of size m x n.
+\end{theorem}
+
+\begin{proof}
+If A = [a_{ij}] and B = [b_{ij}], then their sum C = [c_{ij}] is given by c_{ij} = a_{ij} + b_{ij} for each i and j.
+\end{proof}
+
+%% --------------------
+\section{Linear Independence}
+This section delves into the important concept of linear independence, which is crucial for understanding the structure of vector spaces.
+
+\begin{definition}[Linear Independence]
+A set of vectors is said to be linearly independent if no vector in the set can be expressed as a linear combination of the other vectors.
+\end{definition}
+
+\begin{theorem}[Linear Dependence Lemma]
+If a set of vectors {v_1, ..., v_n} in a vector space V is linearly dependent and v_1 is not the zero vector, then there exists j such that v_j is a linear combination of the preceding vectors v_1, ..., v_{j-1}.
+\end{theorem}
+
+\begin{proof}
+Since the set is linearly dependent, there exist scalars a_1, ..., a_n, not all zero, such that a_1*v_1 + ... + a_n*v_n = 0. If a_1 = ... = a_{j-1} = 0 for some j, then a_j*v_j + ... + a_n*v_n = 0 and a_j != 0, therefore v_j = - (a_{j+1}/a_j) * v_{j+1} - ... - (a_n/a_j) * v_n, expressing v_j as a linear combination of the following vectors.
+\end{proof}
+
+\end{document}

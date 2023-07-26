@@ -63,23 +63,24 @@ def get_args(database_name, BASE_DATA_DIR = BASE_DATA_DIR ):
 
     # CONSTANTS = {
     #     "fda_510ks": {
-    #         "data_dir": os.path.join(BASE_DATA_DIR, "fda-ai-pmas/510k/"),
+    #         "data_dir": str(BASE_DATA_DIR / "fda_510ks/data/evaporate/fda-ai-pmas/510k"),  # raw data
     #         "database_name": "fda_510ks",
     #         "cache_dir": ".cache/fda_510ks/",
-    #         "generative_index_path": os.path.join(BASE_DATA_DIR, "generative_indexes/fda_510ks/"),
-    #         "gold_extractions_file": os.path.join(BASE_DATA_DIR, "ground_truth/fda_510ks_gold_extractions.json"),
+    #         "generative_index_path": str(BASE_DATA_DIR / "generative_indexes/fda_510ks/"),  # 
+    #         "gold_extractions_file": str(BASE_DATA_DIR / "ground_truth/fda_510ks_gold_extractions.json"),  # todo
     #         "topic": "fda 510k device premarket notifications",
     #     },
     # }
 
     CONSTANTS = {
-        "fda_510ks": {
-            "data_dir": str(BASE_DATA_DIR / "fda_510ks/data/evaporate/fda-ai-pmas/510k"),
-            "database_name": "fda_510ks",
-            "cache_dir": ".cache/fda_510ks/",
-            "generative_index_path": str(BASE_DATA_DIR / "generative_indexes/fda_510ks/"),
-            "gold_extractions_file": str(BASE_DATA_DIR / "ground_truth/fda_510ks_gold_extractions.json"),
-            "topic": "fda 510k device premarket notifications",
+        "small_synth_linalg_textbook": {
+            # "data_dir": str(BASE_DATA_DIR / "fda_510ks/data/evaporate/fda-ai-pmas/510k"),
+            "data_dir": "/lfs/ampere1/0/brando9/evaporate/debug_data/debug_textbook_text/",
+            "database_name": "small_synth_linalg_textbook",
+            "cache_dir": ".cache/small_synth_linalg_textbook/",
+            "generative_index_path": str(BASE_DATA_DIR / "generative_indexes/small_synth_linalg_textbook/"),
+            "gold_extractions_file": str(BASE_DATA_DIR / "ground_truth/small_synth_linalg_textbooks_gold_extractions.json"),
+            "topic": "small gpt4 generated linear algebra synthetic textbook",
         },
     }
 

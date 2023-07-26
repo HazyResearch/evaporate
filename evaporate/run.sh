@@ -23,8 +23,18 @@ python ~/evaporate/evaporate/run_profiler.py \
     --data_lake fda_510ks \
     --do_end_to_end True \
     --num_attr_to_cascade 2 \
-    --num_top_k_scripts 10 \
-    --train_size 2 \
+    --num_top_k_scripts 3 \
+    --train_size 1 \
+    --combiner_mode mv \
+    --use_dynamic_backoff True \
+    --KEYS ${keys}
+
+python ~/evaporate/evaporate/run_profiler.py \
+    --data_lake small_synth_linalg_textbook \
+    --do_end_to_end True \
+    --num_attr_to_cascade 2 \
+    --num_top_k_scripts 3 \
+    --train_size 1 \
     --combiner_mode mv \
     --use_dynamic_backoff True \
     --KEYS ${keys}
