@@ -19,22 +19,22 @@ conda activate maf
 #     --KEYS ${keys}
 
 # evaporate code open ie (Open Information Extraction) [learns schema]
-python ~/evaporate/evaporate/run_profiler.py \
-    --data_lake fda_510ks \
-    --do_end_to_end True \
-    --num_attr_to_cascade 2 \
-    --num_top_k_scripts 3 \
-    --train_size 1 \
-    --combiner_mode mv \
-    --use_dynamic_backoff True \
-    --KEYS ${keys}
+# python ~/evaporate/evaporate/run_profiler.py \
+#     --data_lake fda_510ks \
+#     --do_end_to_end True \
+#     --num_attr_to_cascade 2 \
+#     --num_top_k_scripts 3 \
+#     --train_size 1 \
+#     --combiner_mode mv \
+#     --use_dynamic_backoff True \
+#     --KEYS ${keys}
 
 python ~/evaporate/evaporate/run_profiler.py \
-    --data_lake small_synth_linalg_textbook \
+    --data_lake small_debug_lin_alg_textbook \
     --do_end_to_end True \
-    --num_attr_to_cascade 2 \
-    --num_top_k_scripts 3 \
-    --train_size 1 \
+    --num_attr_to_cascade 15 \
+    --num_top_k_scripts 5 \
+    --train_size 10 \
     --combiner_mode mv \
     --use_dynamic_backoff True \
     --KEYS ${keys}

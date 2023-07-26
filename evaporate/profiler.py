@@ -707,26 +707,27 @@ def run_profiler(run_string, args, file2chunks, file2contents, sample_files, gro
                 os.remove(save_path)
             return total_tokens_prompted, 0
 
+    # Save: all_extractions, functions, all_metrics, top_k_keys, file2metadata and top_k_extractions.
+    print('Save: all_extractions, functions, all_metrics, top_k_keys, file2metadata and top_k_extractions.')
     try:
         with open(f"{args.generative_index_path}/{run_string}_{file_attribute}_all_extractions.json", "w") as f:
-            json.dump(all_extractions, f)
+            json.dump(all_extractions, f, indent=4)
 
         with open(f"{args.generative_index_path}/{run_string}_{file_attribute}_functions.json", "w") as f:
-            json.dump(function_dictionary, f)
+            json.dump(function_dictionary, f, indent=4)
 
         with open(f"{args.generative_index_path}/{run_string}_{file_attribute}_all_metrics.json", "w") as f:
-            json.dump(all_metrics, f)
+            json.dump(all_metrics, f, indent=4)
 
         with open(f"{args.generative_index_path}/{run_string}_{file_attribute}_top_k_keys.json", "w") as f:
-            json.dump(selected_keys, f)
+            json.dump(selected_keys, f, indent=4)
 
         with open(f"{args.generative_index_path}/{run_string}_{file_attribute}_file2metadata.json", "w") as f:
-            json.dump(file2metadata, f)
+            json.dump(file2metadata, f, indent=4)
 
         with open(f"{args.generative_index_path}/{run_string}_{file_attribute}_top_k_extractions.json", "w") as f:
-            json.dump(top_k_extractions, f)
+            json.dump(top_k_extractions, f, indent=4)
 
-        print(f"Save path: {args.generative_index_path}/{run_string}_{file_attribute}_all_extractions.json")
         return total_tokens_prompted, 1
 
     except Exception as e:
@@ -737,16 +738,14 @@ def run_profiler(run_string, args, file2chunks, file2contents, sample_files, gro
         for file, metadata in file2metadata.items():
             clean_file2metadata[file] = str(metadata)
         with open(f"{args.generative_index_path}/{run_string}_{file_attribute}_file2metadata.json", "w") as f:
-            json.dump(clean_file2metadata, f)
+            json.dump(clean_file2metadata, f, indent=4)
         with open(f"{args.generative_index_path}/{run_string}_{file_attribute}_all_metrics.json", "w") as f:
-            json.dump(all_metrics, f)
+            json.dump(all_metrics, f, indent=4)
         with open(f"{args.generative_index_path}/{run_string}_{file_attribute}_top_k_keys.json", "w") as f:
-            json.dump(selected_keys, f)
-        print(f"Saved!")
-        print(f"Failed to save {file_attribute} metadata. Error: {e}")
-        return total_tokens_prompted, 1
+            json.dump(selected_keys, f, indent=4)
     except Exception as e:
         pass
+
 
     return total_tokens_prompted, 0
 

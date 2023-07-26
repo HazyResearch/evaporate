@@ -10,6 +10,7 @@ from prompts import Step, SCHEMA_ID_PROMPTS
 from utils import apply_prompt
 from profiler_utils import clean_metadata
 
+from pdb import set_trace as st
 
 def directly_extract_from_chunks_w_value(
     file2chunks, 
@@ -47,6 +48,8 @@ def directly_extract_from_chunks_w_value(
     field2count = Counter()
     file2results = defaultdict()
     num_chunks_per_file = [len(file2chunks[file]) for file in file2chunks]
+    print(f'{num_chunks_per_file=}')
+    # todo: why does it require more than 1 file?
     avg_num_chunks_per_file = statistics.mean(num_chunks_per_file)
     stdev_num_chunks_per_file = statistics.stdev(num_chunks_per_file)
 
@@ -255,7 +258,7 @@ Answer: ['name', 'student major', 'college name', 'GPA', 'student email']
 
 #################### SAVE GENERATIVE INDEX OF FILE BASED METADATA #########################
 def identify_schema(run_string, args, file2chunks: Dict, file2contents: Dict, sample_files: List, manifest_sessions: Dict, group_name: str, profiler_args):
-    print(f'{identify_schema=}')
+    print(f'Identify schema: {identify_schema=}')
     # get sample and eval files, convert the sample scripts to chunks
     random.seed(0)
     total_tokens_prompted = 0
@@ -280,9 +283,9 @@ def identify_schema(run_string, args, file2chunks: Dict, file2contents: Dict, sa
     total_tokens_prompted += num_toks
 
     with open(f"{args.generative_index_path}/{run_string}_identified_schema.json", "w") as f:
-        json.dump(base_extraction_count, f)
+        json.dump(base_extraction_count, f, indent=4)
 
     with open(f"{args.generative_index_path}/{run_string}_order_of_addition.json", "w") as f:
-        json.dump(order_of_addition, f)
+        json.dump(order_of_addition, f, indent=4)
 
     return total_tokens_prompted

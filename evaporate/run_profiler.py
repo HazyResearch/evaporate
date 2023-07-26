@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import random
 import json
@@ -15,6 +16,7 @@ from schema_identification import identify_schema
 from profiler import run_profiler
 from evaluate_synthetic import main as evaluate_synthetic_main
 
+from pdb import set_trace as st
 
 random.seed(0)
 def get_data_lake_info(args, data_lake, DATA_DIR = "/data/evaporate"):
@@ -58,6 +60,7 @@ def chunk_files(file_group, parser, chunk_size, remove_tables, max_chunks_per_fi
 # chunking & preparing data
 def prepare_data(profiler_args, file_group, parser = "html"):
     print(f'Preparing data in func: {prepare_data=}')
+    print(f'{parser=}')
     data_lake = profiler_args.data_lake
     if profiler_args.body_only:
         print(profiler_args.body_only)
@@ -216,7 +219,7 @@ def measure_openie_results(
             if num_extractions in num_extractions2results:
                 continue
             with open(f"{args.generative_index_path}/{run_string}_file2extractions.json", "w") as f:
-                json.dump(file2extractions, f)
+                json.dump(file2extractions, f, indent=4)
 
             results = evaluate_synthetic_main(
                 run_string, 
@@ -231,7 +234,8 @@ def measure_openie_results(
     return num_extractions2results
 
 
-def run_experiment(profiler_args):  
+def run_experiment(profiler_args): 
+    print(f'Running run_experiment: {run_experiment=}')
     do_end_to_end = profiler_args.do_end_to_end
     num_attr_to_cascade = profiler_args.num_attr_to_cascade
     train_size = profiler_args.train_size
@@ -251,6 +255,7 @@ def run_experiment(profiler_args):
     extraction_manifest_sessions = {
         k: v for k, v in manifest_sessions.items() if k in profiler_args.EXTRACTION_MODELS
     }
+    # todo: perhaps hard code some attributes, perhaps robust llm works?
     # gold_attributes = get_gold_metadata(args)
 
     results_by_train_size = defaultdict(dict)
@@ -474,6 +479,9 @@ def get_experiment_args():
 
 
 def main():
+    print(f'Running main: {main=}')
+    print(f"{os.getenv('CONDA_DEFAULT_ENV')=}")
+    # print(f'{sys.path=}')
     experiment_args = get_experiment_args()
     profiler_args = {}
     profiler_args = set_profiler_args(profiler_args)
@@ -494,14 +502,18 @@ def main():
     # }
             
     for k, v in model_dict.items():
-        print(f'model dict: {k=} {v=}')
+        print(f'model_dict: {k=} {v=}')
         setattr(profiler_args, k, v)
 
     for k in vars(experiment_args):
-        print(f'experiment args: {k=}')
-        setattr(profiler_args, k,  getattr(experiment_args, k))
+        v = getattr(experiment_args, k)
+        print(f'experiment_args: {k=} {v=}')
+        setattr(profiler_args, k, v)
 
+    # for k, v in vars(profiler_args).items():
+    #     print(f'profiler_args: {k=} {v=}')
     print(f'{profiler_args=}')
+    # st()
     run_experiment(profiler_args)
 
 

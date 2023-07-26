@@ -3,9 +3,6 @@ import json
 from collections import Counter, defaultdict
 from pdb import set_trace as st
 import os
-print(os.getenv('CONDA_DEFAULT_ENV'))
-import sys; print(sys.path)
-
 from manifest import Manifest
 from configs import get_args
 from prompts import Step
@@ -108,7 +105,7 @@ def get_structure(dataset_name):
     if not os.path.exists(cache_path) or args.overwrite_cache:
         files = get_all_files(args.data_dir)
         with open(cache_path, "w") as f:
-            json.dump(files, f)
+            json.dump(files, f, indent=4)
     else:
         with open(cache_path) as f:
             files = json.load(f)
@@ -118,7 +115,7 @@ def get_structure(dataset_name):
     if not os.path.exists(cache_path) or args.overwrite_cache:
         directory_hierarchy = get_directory_hierarchy(args.data_dir)
         with open(cache_path, "w") as f:
-            json.dump(directory_hierarchy, f)
+            json.dump(directory_hierarchy, f, indent=4)
     else:
         with open(cache_path) as f:
             directory_hierarchy = json.load(f)
