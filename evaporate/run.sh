@@ -8,24 +8,24 @@ echo $keys
 conda activate maf
 
 # evaporate code closed ie (Closed Information Extraction) [predefined schema]
-python ~/evaporate/evaporate/run_profiler.py \
-    --data_lake fda_510ks \
-    --do_end_to_end False \
-    --num_attr_to_cascade 50 \
-    --num_top_k_scripts 10 \
-    --train_size 10 \
-    --combiner_mode ws \
-    --use_dynamic_backoff True \
-    --KEYS ${keys}
+# python ~/evaporate/evaporate/run_profiler.py \
+#     --data_lake fda_510ks \
+#     --do_end_to_end False \
+#     --num_attr_to_cascade 50 \
+#     --num_top_k_scripts 10 \
+#     --train_size 10 \
+#     --combiner_mode ws \
+#     --use_dynamic_backoff True \
+#     --KEYS ${keys}
 
 # evaporate code open ie (Open Information Extraction) [learns schema]
 python ~/evaporate/evaporate/run_profiler.py \
     --data_lake fda_510ks \
     --do_end_to_end True \
-    --num_attr_to_cascade 1 \
+    --num_attr_to_cascade 2 \
     --num_top_k_scripts 10 \
-    --train_size 10 \
-    --combiner_mode ws \
+    --train_size 2 \
+    --combiner_mode mv \
     --use_dynamic_backoff True \
     --KEYS ${keys}
 

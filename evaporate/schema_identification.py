@@ -232,6 +232,7 @@ Answer: ['name', 'student major', 'college name', 'GPA', 'student email']
 
 #################### SAVE GENERATIVE INDEX OF FILE BASED METADATA #########################
 def identify_schema(run_string, args, file2chunks: Dict, file2contents: Dict, sample_files: List, manifest_sessions: Dict, group_name: str, profiler_args):
+    print(f'{identify_schema=}')
     # get sample and eval files, convert the sample scripts to chunks
     random.seed(0)
     total_tokens_prompted = 0

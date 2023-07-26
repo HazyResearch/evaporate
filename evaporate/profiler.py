@@ -1,5 +1,6 @@
 import os
 import random
+from pathlib import Path
 import pickle
 from tqdm import tqdm
 from functools import partial
@@ -259,7 +260,8 @@ def apply_final_profiling_functions(
     if function_cache:
         original_fn = fn
         file_attribute = attribute.replace(" ", "_").replace("/", "_").lower()
-        cache_dir = "./function_cache/" 
+        # cache_dir = "./function_cache/" 
+        cache_dir = f"{Path('~/data/evaporate/').expanduser()}/function_cache/" 
         if not os.path.exists(cache_dir):
             os.makedirs(cache_dir)
         cache_path = f"{cache_dir}function_cache_{file_attribute}_{data_lake}.pkl" 
@@ -599,6 +601,7 @@ def get_all_extractions(
 
 
 def run_profiler(run_string, args, file2chunks, file2contents, sample_files, group_files, manifest_sessions, attribute, profiler_args):
+    print(f'{run_profiler=}')
     total_tokens_prompted = 0
     
     attribute = attribute.lower()

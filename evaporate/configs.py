@@ -4,8 +4,10 @@ from pathlib import Path
 
 # original
 # BASE_DATA_DIR = "/data/evaporate/"
+# Path("~/data/evaporate/").expanduser()
+BASE_DATA_DIR = Path("~/data/evaporate/data/").expanduser()
 
-def get_args(database_name, BASE_DATA_DIR = Path("~/data/evaporate/data/").expanduser() ):
+def get_args(database_name, BASE_DATA_DIR = BASE_DATA_DIR ):
     
     parser = argparse.ArgumentParser(
         "LLM explorer.",

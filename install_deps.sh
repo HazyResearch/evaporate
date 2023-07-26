@@ -21,15 +21,18 @@ git submodule init
 git submodule update
 pip install -e .
 
-# -- Manifest (to install from source, which helps you modify the set of supported models. Otherwise, ``setup.py`` installs ``manifest-ml``)
-cd ~cd ~
-# cd $AFS
-# echo $AFS
-git clone git@github.com:HazyResearch/manifest.git
-# ln -s /afs/cs.stanford.edu/u/brando9/manifest $HOME/manifest
-cd ~/manifest
-pip install -e .
-pip install -e ~/manifest
+# # -- Manifest (to install from source, which helps you modify the set of supported models. Otherwise, ``setup.py`` installs ``manifest-ml``)
+# cd ~cd ~
+# # cd $AFS
+# # echo $AFS
+# git clone git@github.com:HazyResearch/manifest.git
+# # ln -s /afs/cs.stanford.edu/u/brando9/manifest $HOME/manifest
+# cd ~/manifest
+# pip install -e .
+# pip install -e ~/manifest
+pip install manifest-ml
+
+pip uninstall manifest-ml
 
 # -- Git lfs install is a command used to initialize Git Large File Storage (LFS) on your machine.
 git lfs install

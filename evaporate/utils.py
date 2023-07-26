@@ -1,6 +1,10 @@
 import os
 import json
 from collections import Counter, defaultdict
+from pdb import set_trace as st
+import os
+print(os.getenv('CONDA_DEFAULT_ENV'))
+import sys; print(sys.path)
 
 from manifest import Manifest
 from configs import get_args
@@ -203,7 +207,9 @@ def get_manifest_session(
         **cache_params,
     )
     
-    params = manifest.client_pool.get_client().get_model_params()
+    # st()
+    # params = manifest.client_pool.get_client().get_model_params()
+    params = manifest.client_pool.get_next_client().get_model_params()
     model_name = params["model_name"]
     if "engine" in params:
         model_name += f"_{params['engine']}"

@@ -3,6 +3,7 @@ import time
 import random
 import json
 import datetime
+from pathlib import Path
 from tqdm import tqdm
 import pickle
 import argparse
@@ -233,6 +234,7 @@ def run_experiment(profiler_args):
     
     setattr(profiler_args, 'chunk_size', 3000)
     _, _, _, _, args = get_structure(data_lake)
+    print(f'{args=}')
     file_groups, extractions_file, parser, full_file_groups = get_data_lake_info(args, data_lake)
     file2chunks, file2contents, manifest_sessions = prepare_data(
         profiler_args, full_file_groups, parser
@@ -240,11 +242,13 @@ def run_experiment(profiler_args):
     extraction_manifest_sessions = {
         k: v for k, v in manifest_sessions.items() if k in profiler_args.EXTRACTION_MODELS
     }
-    gold_attributes = get_gold_metadata(args)
+    # gold_attributes = get_gold_metadata(args)
 
     results_by_train_size = defaultdict(dict)
     total_time_dict = defaultdict(dict) 
     
+    # -- Run the schema identification
+    print(f"\n\n-- Run the schema identification")
     if 1:
         total_tokens_prompted = 0
 
@@ -257,6 +261,7 @@ def run_experiment(profiler_args):
             profiler_args.use_dynamic_backoff,
             profiler_args.EXTRACTION_MODELS,
         )
+        print(f'{run_string=}')
         
         sample_files = sample_scripts(
             file_groups,  
@@ -264,7 +269,9 @@ def run_experiment(profiler_args):
         )
 
         # top-level schema identification
+        print('\n\n- top-level schema identification')
         if do_end_to_end:
+            print('\n\nIdentifying schema')
             t0 = time.time()
             num_toks = identify_schema(
                 run_string,
@@ -279,22 +286,27 @@ def run_experiment(profiler_args):
             t1 = time.time()
             total_time = t1-t0
             total_tokens_prompted += num_toks
+            print(f"Total tokens prompted: {total_tokens_prompted=}")
             total_time_dict[f'schemaId'][f'totalTime_trainSize{train_size}'] = int(total_time)
 
-            results = evaluate_synthetic_main(
-                run_string,
-                args, 
-                profiler_args, 
-                data_lake, 
-                stage='schema_id'
-            )
-            results_by_train_size[train_size]['schema_id'] = results
+            # results = evaluate_synthetic_main(
+            #     run_string,
+            #     args, 
+            #     profiler_args, 
+            #     data_lake, 
+            #     stage='schema_id'
+            # )
+            # results_by_train_size[train_size]['schema_id'] = results
 
+        # -- run the extraction
+        print(f"\n\n-- Run the extraction")
         if 1:
             if do_end_to_end:
                 with open(f"{args.generative_index_path}/{run_string}_identified_schema.json") as f:
+                    print(f"Identified schema: {f.name=}")
                     most_common_fields = json.load(f)
                 with open(f"{args.generative_index_path}/{run_string}_order_of_addition.json") as f:
+                    print(f"Order of addition (order to populate data frame): {f.name=}")
                     order_of_addition = json.load(f)
                     order = {item: (len(order_of_addition) - i) for i, item in enumerate(order_of_addition)}
                 ctr =  Counter(most_common_fields)
@@ -304,13 +316,16 @@ def run_experiment(profiler_args):
                     reverse=True
                 )
                 attributes = [item[0].lower() for item in pred_metadata]
+                print(f'Attributes: {attributes=}')
             else:
                 attributes = gold_attributes
 
-            # top-level information extraction
+            # - top-level information extraction
+            print('\n\n- top-level information extraction')
             num_collected = 0
             for i, attribute in enumerate(attributes):
-                print(f"\n\nExtracting {attribute} ({i+1} / {len(attributes)})")
+                print(f'{attribute=}')
+                print(f"Extracting {attribute} ({i+1} / {len(attributes)})")
                 t0 = time.time()
                 num_toks, success = run_profiler(
                     run_string,
@@ -323,57 +338,63 @@ def run_experiment(profiler_args):
                     attribute, 
                     profiler_args
                 ) 
+                print(f'current number of tokens prompted/used: {num_toks=}')
                 t1 = time.time()
                 total_time = t1-t0
                 total_tokens_prompted += num_toks 
+                print(f"Total tokens prompted: {total_tokens_prompted=}")
                 total_time_dict[f'extract'][f'totalTime_trainSize{train_size}'] = int(total_time)
                 if success:
                     num_collected += 1
                 if num_collected >= num_attr_to_cascade:
+                    # break if we have collected enough attributes
                     break
             
             # run closed ie eval
-            results = evaluate_synthetic_main(
-                run_string, 
-                args, 
-                profiler_args, 
-                data_lake,
-                gold_attributes=gold_attributes, 
-                stage='extract'
-            )
-            results_by_train_size[train_size]['extract'] = results
+            # results = evaluate_synthetic_main(
+            #     run_string, 
+            #     args, 
+            #     profiler_args, 
+            #     data_lake,
+            #     gold_attributes=gold_attributes, 
+            #     stage='extract'
+            # )
+            # results_by_train_size[train_size]['extract'] = results
 
-            # Determine whether to remove any attributes based on the extractions
-            # Potentially can rerank the attributes based on the metric comparison to big model
-            if do_end_to_end:
-                attributes_to_remove, mappings_names, attributes = determine_attributes_to_remove(
-                    attributes, 
-                    args, 
-                    run_string, 
-                    num_attr_to_cascade, 
-                )
-                numextractions2results = measure_openie_results(
-                    attributes, 
-                    args, 
-                    profiler_args,
-                    run_string, 
-                    gold_attributes, 
-                    attributes_to_remove, 
-                    full_file_groups, 
-                    mappings_names
-                )
-                if 'openie' not in results_by_train_size[train_size]:
-                    results_by_train_size[train_size]['openie'] = {}
-                results_by_train_size[train_size]['openie'] = numextractions2results
+            # # Determine whether to remove any attributes based on the extractions
+            # # Potentially can rerank the attributes based on the metric comparison to big model
+            # if do_end_to_end:
+            #     attributes_to_remove, mappings_names, attributes = determine_attributes_to_remove(
+            #         attributes, 
+            #         args, 
+            #         run_string, 
+            #         num_attr_to_cascade, 
+            #     )
+            #     # numextractions2results = measure_openie_results(
+            #     #     attributes, 
+            #     #     args, 
+            #     #     profiler_args,
+            #     #     run_string, 
+            #     #     gold_attributes, 
+            #     #     attributes_to_remove, 
+            #     #     full_file_groups, 
+            #     #     mappings_names
+            #     # )
+            #     if 'openie' not in results_by_train_size[train_size]:
+            #         results_by_train_size[train_size]['openie'] = {}
+            #     # results_by_train_size[train_size]['openie'] = numextractions2results
 
         results_by_train_size[train_size]['total_tokens_prompted'] = total_tokens_prompted
         results_by_train_size[train_size]['num_total_files'] = len(full_file_groups)
         results_by_train_size[train_size]['num_sample_files'] = len(sample_files)
-        if not os.path.exists("results_dumps"):
-            os.mkdir("results_dumps")
+        results_path = Path('~/data/evaporate/results_dumps').expanduser()
+        if not os.path.exists(results_path):
+            os.mkdir(results_path)
+            print(results_path)
         print(run_string)
-        with open(f"results_dumps/{run_string}_results_by_train_size.pkl", "wb") as f:
+        with open(results_path / f"{run_string}_results_by_train_size.pkl", "wb") as f:
             pickle.dump(results_by_train_size, f)
+            print(f.name)
             print(f"Saved!")
 
         print(f"Total tokens prompted: {total_tokens_prompted}")
@@ -469,7 +490,7 @@ def main():
     for k in vars(experiment_args):
         setattr(profiler_args, k,  getattr(experiment_args, k))
 
-    print(profiler_args)
+    # print(profiler_args)
     run_experiment(profiler_args)
 
 
