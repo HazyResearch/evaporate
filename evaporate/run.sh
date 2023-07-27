@@ -29,15 +29,33 @@ conda activate maf
 #     --use_dynamic_backoff True \
 #     --KEYS ${keys}
 
+# # Open IE
+# python ~/evaporate/evaporate/run_profiler.py \
+#     --data_lake small_debug_lin_alg_textbook \
+#     --do_end_to_end \
+#     --num_attr_to_cascade 15 \
+#     --num_top_k_scripts 5 \
+#     --train_size 10 \
+#     --combiner_mode mv \
+#     --use_dynamic_backoff True \
+#     --KEYS ${keys}
+
 python ~/evaporate/evaporate/run_profiler.py \
     --data_lake small_debug_lin_alg_textbook \
-    --do_end_to_end True \
     --num_attr_to_cascade 15 \
     --num_top_k_scripts 5 \
     --train_size 10 \
-    --combiner_mode mv \
-    --use_dynamic_backoff True \
+    --combiner_mode ws \
+    --use_dynamic_backoff \
     --KEYS ${keys}
+
+# python ~/evaporate/evaporate/run_profiler.py \
+#     --data_lake small_debug_lin_alg_textbook \
+#     --num_attr_to_cascade 15 \
+#     --num_top_k_scripts 5 \
+#     --train_size 10 \
+#     --combiner_mode mv \
+#     --KEYS ${keys}
 
 # --- Original code
 

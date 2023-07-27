@@ -237,6 +237,7 @@ def measure_openie_results(
 def run_experiment(profiler_args): 
     print(f'Running run_experiment: {run_experiment=}')
     do_end_to_end = profiler_args.do_end_to_end
+    print(f'{do_end_to_end=}. If True then OpenIE (learn schema) else ClosedIE (ground truth/human specified).')
     num_attr_to_cascade = profiler_args.num_attr_to_cascade
     train_size = profiler_args.train_size
     data_lake = profiler_args.data_lake
@@ -257,6 +258,9 @@ def run_experiment(profiler_args):
     }
     # todo: perhaps hard code some attributes, perhaps robust llm works?
     # gold_attributes = get_gold_metadata(args)
+    # gold_attributes = keys = list(json.load(open("/lfs/ampere1/0/brando9/data/evaporate/data/ground_truth/small_debug_lin_alg_textbook_gold_extractions.json")).keys())
+    gold_attributes = ['definition', 'proof', 'theorem']
+    print(f'{gold_attributes=}')
 
     results_by_train_size = defaultdict(dict)
     total_time_dict = defaultdict(dict) 
@@ -284,6 +288,7 @@ def run_experiment(profiler_args):
 
         # top-level schema identification
         print('\n\n- top-level schema identification')
+        print(f'{do_end_to_end=}')
         if do_end_to_end:
             print('\n\nIdentifying schema')
             t0 = time.time()
@@ -299,7 +304,7 @@ def run_experiment(profiler_args):
             )
             t1 = time.time()
             total_time = t1-t0
-            total_tokens_prompted += num_toks
+            tokens_prompted += num_toks
             print(f"Total tokens prompted: {total_tokens_prompted=}")
             total_time_dict[f'schemaId'][f'totalTime_trainSize{train_size}'] = int(total_time)
 
@@ -315,6 +320,7 @@ def run_experiment(profiler_args):
         # -- run the extraction
         print(f"\n\n-- Run the extraction")
         if 1:
+            print(f'{do_end_to_end=}')
             if do_end_to_end:
                 with open(f"{args.generative_index_path}/{run_string}_identified_schema.json") as f:
                     print(f"Identified schema: {f.name=}")
@@ -425,9 +431,9 @@ def get_experiment_args():
 
     parser.add_argument(
         "--do_end_to_end", 
-        type=bool,
-        default=True,
-        help="True for OpenIE, False for ClosedIE"
+        action='store_true',
+        default=False,  # not end to end so do ClosedIE
+        help="True for OpenIE, False for ClosedIE. Default is False so it does ClosedIE."
     )
 
     parser.add_argument(
@@ -461,9 +467,9 @@ def get_experiment_args():
 
     parser.add_argument(
         "--use_dynamic_backoff",
-        type=bool,
-        default=True,
-        help="Whether to generate functions or do Evaporate-Direct",
+        action='store_true',  # flag --> gen functions
+        default=False,  # default no flag --> evaporate direct
+        help="True (flag set) for using generate functions, False (default) for using evaporate direct."
     )
 
     parser.add_argument(
@@ -474,8 +480,10 @@ def get_experiment_args():
         nargs='*'
     )
 
-    experiment = parser.parse_args()
-    return experiment
+    print(f'{sys.argv=}')
+    experiment_args = parser.parse_args(args=sys.argv[1:])
+    print(f'{experiment_args=}')
+    return experiment_args
 
 
 def main():
@@ -513,6 +521,8 @@ def main():
     # for k, v in vars(profiler_args).items():
     #     print(f'profiler_args: {k=} {v=}')
     print(f'{profiler_args=}')
+    if profiler_args.use_dynamic_backoff:
+        print(f"Using dynamic backoff ==> generating functions (not Evaporate Direct)")
     # st()
     run_experiment(profiler_args)
 
