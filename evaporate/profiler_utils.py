@@ -362,6 +362,35 @@ def clean_metadata(field):
 
 
 def filter_file2chunks(file2chunks, sample_files, attribute):
+    """
+  Filter chunks in file2chunks based on relevance to attribute/Keeps only chunks containing the attribute name as a keyword, removing those that do not.
+
+  Args:
+    file2chunks: Dict mapping files to lists of chunks.
+    sample_files: List of sample file names. 
+    attribute: Attribute name to filter for.
+
+  Returns:
+    filtered_file2chunks: Dict with filtered chunks for each file.
+
+  Filters the chunk lists in file2chunks to only include chunks 
+  relevant to the specified attribute. 
+
+  - Removes files with no matching chunks
+  - Keeps top 1-2 chunks per file based on keyword search
+
+  This focuses the chunks on the attribute of interest to improve
+  signal for synthesizing extraction functions.
+
+    Key points:
+
+    Purpose is to filter chunks by attribute
+    Inputs are original chunks, sample files, attribute name
+    Output is filtered chunk mapping
+    Briefly explains filtering process
+
+  Returns filtered mapping of files to filtered chunk lists.
+    """
     def get_attribute_parts(attribute):
         for char in ["/", "-", "(", ")", "[", "]", "{", "}", ":"]:
             attribute = attribute.replace(char, " ")
@@ -380,6 +409,7 @@ def filter_file2chunks(file2chunks, sample_files, attribute):
             starting_in_sample_chunks += len(chunks)
         cleaned_chunks = []
         for chunk in chunks:
+            # key line: check if attribute is in chunk and only append relevant chunk
             if attribute.lower() in chunk.lower():
                 cleaned_chunks.append(chunk)
         if len(cleaned_chunks) == 0:
@@ -403,8 +433,9 @@ def filter_file2chunks(file2chunks, sample_files, attribute):
         num_chunks = len(cleaned_chunks)
         num_chunks = min(num_chunks, 2)
 
+        # key line: only keep relevant clean chunks
         cleaned_chunks = cleaned_chunks[:num_chunks]
-        attribute_chunks[file] = cleaned_chunks
+        attribute_chunks[file] = cleaned_chunks  # key line
         if file in sample_files:
             ending_in_sample_chunks += len(attribute_chunks[file])
     file2chunks = attribute_chunks

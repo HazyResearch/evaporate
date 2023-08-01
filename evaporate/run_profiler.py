@@ -430,17 +430,17 @@ def get_experiment_args():
     )
 
     parser.add_argument(
-        "--do_end_to_end", 
-        action='store_true',
-        default=False,  # not end to end so do ClosedIE
-        help="True for OpenIE, False for ClosedIE. Default is False so it does ClosedIE."
+        "--do_end_to_end",  
+        type=bool,
+        default="True", 
+        help="True for generating schema from data/OpenIE, False for ClosedIE/given schema. Default is True genererate schema/OpenIE.",
     )
 
     parser.add_argument(
         "--num_attr_to_cascade", 
         type=int,
         default=35,
-        help="Number of attributes to generate functions for"
+        help="Number of attributes to generate functions for. "
     )
 
     parser.add_argument(
@@ -467,9 +467,9 @@ def get_experiment_args():
 
     parser.add_argument(
         "--use_dynamic_backoff",
-        action='store_true',  # flag --> gen functions
-        default=False,  # default no flag --> evaporate direct
-        help="True (flag set) for using generate functions, False (default) for using evaporate direct."
+        type=bool,
+        default="True",  
+        help="True (default) uses generated functions for extraction. Else, False uses evaporate direct/LLM cfor extraction."
     )
 
     parser.add_argument(
@@ -482,6 +482,12 @@ def get_experiment_args():
 
     print(f'{sys.argv=}')
     experiment_args = parser.parse_args(args=sys.argv[1:])
+    # - process non-standard args to behave correctly
+    experiment_args.do_end_to_end = True if experiment_args.do_end_to_end.lower() == 'true' else False
+    print(f'{experiment_args.do_end_to_end=} (learn schema/openie or not)')
+    experiment_args.use_dynamic_backoff = True if experiment_args.use_dynamic_backoff.lower() == 'true' else False
+    print(f'{experiment_args.use_dynamic_backoff=} (use generated functions or not)')
+    # - return expt args
     print(f'{experiment_args=}')
     return experiment_args
 

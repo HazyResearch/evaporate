@@ -554,28 +554,58 @@ def get_all_extractions(
         use_qa_model=False,
         overwrite_cache=False,
     ):
+    """
+  Extract metadata from sample files using models and synthesized functions.
+
+  Args:
+    file2chunks: Mapping of files to chunks.
+    file2contents: Mapping of files to full contents.
+    sample_files: List of sample file names.
+    attribute: Name of attribute to extract.
+    manifest_sessions: API sessions for models. 
+    MODELS: List of model names to apply.
+    GOLD_KEY: Name of gold model.
+    args: Config arguments.
+    use_qa_model: If True, apply QA model.
+    overwrite_cache: Whether to re-prompt API.
+
+  Returns:
+    all_extractions: Dict of extractions from all models and functions.
+    function_dict: Metadata on generated functions.
+    total_tokens: Number of tokens prompted.
+
+  Gets extractions for the attribute from:
+    - Models in MODELS using prompt engineering
+    - Synthesized functions based on sample files
+  
+  Saves the generated functions in function_dict.
+
+  Returns all model and function extractions before aggregation.
+    """
     total_tokens_prompted = 0
-
     all_extractions = {}
-    for model in MODELS:
-        manifest_session = manifest_sessions[model]
-        extractions, num_toks, errored_out = get_model_extractions(
-            file2chunks, 
-            sample_files, 
-            attribute,  
-            manifest_session,
-            model,
-            overwrite_cache=overwrite_cache,
-            collecting_preds=True,
-        )
 
-        total_tokens_prompted += num_toks
-        if not errored_out:
-            all_extractions[model] = extractions
-        else:
-            print(f"Not applying {model} extractions")
-            return 0, 0, total_tokens_prompted
+    # -- Get extractions from LLM models directly
+    # for model in MODELS:
+    #     manifest_session = manifest_sessions[model]
+    #     extractions, num_toks, errored_out = get_model_extractions(
+    #         file2chunks, 
+    #         sample_files, 
+    #         attribute,  
+    #         manifest_session,
+    #         model,
+    #         overwrite_cache=overwrite_cache,
+    #         collecting_preds=True,
+    #     )
 
+    #     total_tokens_prompted += num_toks
+    #     if not errored_out:
+    #         all_extractions[model] = extractions
+    #     else:
+    #         print(f"Not applying {model} extractions")
+    #         return 0, 0, total_tokens_prompted
+
+    # -- Generate extraction functions using LLM model
     manifest_session = manifest_sessions[GOLD_KEY]
     functions, function_promptsource, num_toks = get_functions(
         file2chunks, 
@@ -585,8 +615,10 @@ def get_all_extractions(
         manifest_session,
         overwrite_cache=overwrite_cache,
     )
+    print(f"Number of functions: {len(functions)}")
     total_tokens_prompted += num_toks
 
+    # -- Get extractions from synthesized functions
     function_dictionary = defaultdict(dict)
     for fn_key, fn in functions.items():
         all_extractions[fn_key], num_function_errors = apply_final_profiling_functions(
@@ -601,6 +633,32 @@ def get_all_extractions(
 
 
 def run_profiler(run_string, args, file2chunks, file2contents, sample_files, group_files, manifest_sessions, attribute, profiler_args):
+    """
+  Run profiling pipeline to extract metadata for a single attribute.
+
+  Args:
+    run_string: Unique ID string for this run.
+    args: Arguments for data set and file paths.
+    file2chunks: Mapping of files to chunked content.
+    file2contents: Mapping of files to raw content.
+    sample_files: List of sample file names.
+    group_files: List of all file names.
+    manifest_sessions: Dictionary of model API sessions.
+    attribute: Attribute name to extract.
+    profiler_args: Configurable arguments for profiler.
+
+  Returns:
+    total_tokens_prompted: Number of tokens used.
+    success: Whether extraction was successful.
+
+  This executes the full profiling pipeline for a single attribute:
+    - Generates candidate extraction functions
+    - Evaluates and selects best functions
+    - Applies functions to full data set
+    - Aggregates outputs
+
+  Output is the extracted metadata for the attribute across all files.
+    """
     print(f'{run_profiler=}')
     total_tokens_prompted = 0
     
@@ -608,6 +666,7 @@ def run_profiler(run_string, args, file2chunks, file2contents, sample_files, gro
     file_attribute = get_file_attribute(attribute)
     save_path = f"{args.generative_index_path}/{run_string}_{file_attribute}_file2metadata.json"
 
+    # FILTER: filter out file chunks that don't have the attribute
     file2chunks = filter_file2chunks(file2chunks, sample_files, attribute)
     if file2chunks is None:
         return total_tokens_prompted, 0
@@ -630,6 +689,7 @@ def run_profiler(run_string, args, file2chunks, file2contents, sample_files, gro
         return total_tokens_prompted, 0
 
     # SCORE: Determine a set of functions to utilize for the full data lake.
+    # note: for our theorem proving applicaiton, we could choose the function/output that actually translates to valid ITP code
     all_metrics, key2golds, num_toks = evaluate(
         all_extractions,
         profiler_args.GOLD_KEY,

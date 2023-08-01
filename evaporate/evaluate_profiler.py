@@ -163,6 +163,36 @@ def evaluate(
     extraction_fraction_thresh=0.8,
     use_abstension=True,
 ):
+    """
+  Evaluate extraction quality against gold labels.
+
+  Args:
+    all_extractions: Dict of extractions from all models/functions.
+    gold_key: Key of gold model in all_extractions. 
+    field: Field name being extracted.
+    manifest_session: API session for prompting.
+    overwrite_cache: Whether to re-prompt API.
+    combiner_mode: Aggregation method used.
+    extraction_fraction_thresh: Threshold for abstentions.
+    use_abstension: Whether to use abstentions.
+
+  Returns:
+    metrics: Dictionary of quality metrics per model/function.
+    key2golds: Gold labels matched to models.
+    total_tokens_prompted: Number of tokens used.
+
+  Scores all model and function extractions against gold labels.
+  Metrics include F1, extraction fraction, tokens used.
+
+  Can apply prompts to pick best gold label when multiple exist.
+
+    Key points:
+
+    Purpose is evaluating extractions vs gold labels.
+    Inputs include extraction dict, gold key, configs.
+    Outputs are quality metrics and gold labels.
+    Notes techniques like using abstentions.
+    """
     normalized_field_name = field
     for char in ["'", ":", "<", ">", '"', "_", "-", " ", "none"]:
         normalized_field_name = normalized_field_name.replace(char, "")
