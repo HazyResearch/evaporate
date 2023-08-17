@@ -1,5 +1,6 @@
 # keys="PLACEHOLDER" # INSERT YOUR API KEY(S) HERE
-keys=$(cat ~/data/openai_api_key.txt)
+# keys=$(cat ~/data/openai_api_key.txt)
+keys=$(cat ~/data/openai_api_key_koyejolab_brando.txt)
 echo $keys
 
 # cd ~/evaporate/evaporate

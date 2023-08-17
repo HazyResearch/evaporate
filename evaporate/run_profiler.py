@@ -257,9 +257,12 @@ def run_experiment(profiler_args):
         k: v for k, v in manifest_sessions.items() if k in profiler_args.EXTRACTION_MODELS
     }
     # todo: perhaps hard code some attributes, perhaps robust llm works?
+    import yaml
     # gold_attributes = get_gold_metadata(args)
     # gold_attributes = keys = list(json.load(open("/lfs/ampere1/0/brando9/data/evaporate/data/ground_truth/small_debug_lin_alg_textbook_gold_extractions.json")).keys())
-    gold_attributes = ['definition', 'proof', 'theorem']
+    # gold_attributes = ['definition', 'proof', 'theorem']
+    data = yaml.safe_load(open('/lfs/ampere1/0/brando9/evaporate/maf_config.yaml', 'r'))
+    gold_attributes = data['gold_attributes']
     print(f'{gold_attributes=}')
 
     results_by_train_size = defaultdict(dict)

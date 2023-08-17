@@ -12,6 +12,7 @@ _REQUIRED = [
     'snorkel',
     'snorkel-metal', 
     'tensorboardX',
+    'pyyaml',
 ]
 
 setup(

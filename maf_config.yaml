@@ -1,0 +1,30 @@
+gold_attributes:
+  - definition
+  - proof
+  - theorem
+  - corollary
+  - remark
+  - example
+  - exercise
+  - lemma
+  - proposition
+  - axiom
+  - proof sketch
+  - proof idea
+  - law
+  - notation
+  - question
+  - answer
+  - conjecture
+  - postulate
+  # - theorem statement
+  - correspondence
+  - algorithm
+  # - definition-theorem
+  # - identity
+  - principle
+  - rule
+  - formula
+  # - counterexample
+  - observation
+  - assumption
