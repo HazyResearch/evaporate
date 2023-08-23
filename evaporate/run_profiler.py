@@ -1,3 +1,11 @@
+"""
+So in essence, "profiling" here means building a concise profile or summary of the key information in documents 
+by extracting fields and values. https://claude.ai/chat/8c19bc99-b203-44b2-a0b6-782c07b62f65
+
+abstention = deliberately miss/omit something or refuse/failure to do something
+abstention (evaporate) = omit/miss/failure to extract data from the document. 
+The model/extraction function "refused"/failed to yield the information for the attribute from the doc. 
+"""
 import os
 import sys
 import time
@@ -247,7 +255,7 @@ def run_experiment(profiler_args):
     print(f'{today=}')
     
     setattr(profiler_args, 'chunk_size', 3000)
-    _, _, _, _, args = get_structure(data_lake)
+    _, _, _, _, args = get_structure(data_lake)  # Get args for data lake from data lake config. In config.py 
     print(f'{args=}')
     file_groups, extractions_file, parser, full_file_groups = get_data_lake_info(args, data_lake)
     file2chunks, file2contents, manifest_sessions = prepare_data(
@@ -256,12 +264,13 @@ def run_experiment(profiler_args):
     extraction_manifest_sessions = {
         k: v for k, v in manifest_sessions.items() if k in profiler_args.EXTRACTION_MODELS
     }
+
     # todo: perhaps hard code some attributes, perhaps robust llm works?
     import yaml
     # gold_attributes = get_gold_metadata(args)
     # gold_attributes = keys = list(json.load(open("/lfs/ampere1/0/brando9/data/evaporate/data/ground_truth/small_debug_lin_alg_textbook_gold_extractions.json")).keys())
     # gold_attributes = ['definition', 'proof', 'theorem']
-    data = yaml.safe_load(open('/lfs/ampere1/0/brando9/evaporate/maf_config.yaml', 'r'))
+    data = yaml.safe_load(open(Path('~/evaporate/maf_config.yaml').expanduser(), 'r'))
     gold_attributes = data['gold_attributes']
     print(f'{gold_attributes=}')
 
@@ -284,16 +293,19 @@ def run_experiment(profiler_args):
         )
         print(f'{run_string=}')
         
+        # - Get sample/subset of files that will be used to learn/infer schema gen, fun gen & fun scoring.
         sample_files = sample_scripts(
             file_groups,  
             train_size=profiler_args.train_size,
         )
+        print(f'{sample_files=}')
 
-        # top-level schema identification
+        # - Top-level Schema identification
         print('\n\n- top-level schema identification')
         print(f'{do_end_to_end=}')
         if do_end_to_end:
             print('\n\nIdentifying schema')
+            tokens_prompted = 0
             t0 = time.time()
             num_toks = identify_schema(
                 run_string,
@@ -320,7 +332,7 @@ def run_experiment(profiler_args):
             # )
             # results_by_train_size[train_size]['schema_id'] = results
 
-        # -- run the extraction
+        # -- Run the extraction (profiling a document ~ extracting fields and values to summarize document)
         print(f"\n\n-- Run the extraction")
         if 1:
             print(f'{do_end_to_end=}')
@@ -342,6 +354,7 @@ def run_experiment(profiler_args):
                 print(f'Attributes: {attributes=}')
             else:
                 attributes = gold_attributes
+            print(f'{attributes=}')
 
             # - top-level information extraction
             print('\n\n- top-level information extraction')
@@ -350,6 +363,8 @@ def run_experiment(profiler_args):
                 print(f'{attribute=}')
                 print(f"Extracting {attribute} ({i+1} / {len(attributes)})")
                 t0 = time.time()
+                
+                # - "profiling" here means building a concise profile or summary of the key information in documents
                 num_toks, success = run_profiler(
                     run_string,
                     args, 
@@ -424,6 +439,25 @@ def run_experiment(profiler_args):
 
 
 def get_experiment_args():
+    """
+    The experiment settings for how the Machine Learning will behave when profiling/summarizing/extracting
+    information from the documents in the data lake. 
+    i.e., how the ML experiment will run: what data_lake, if to learn the schema (OpenIE/ClosedIE), type of combiner, 
+    train_size/num. files to use, etc.
+
+    get_experiment_args vs set_profiler_args: The distinction is between configuring the profiler vs controlling the overall experiment.
+
+    - data_lake: Name of the data lake dataset.  
+    - do_end_to_end: Whether to perform OpenIE (learn schema) or ClosedIE (use predefined schema).
+    - num_attr_to_cascade: Number of attributes to extract. One set of extractor functions per attribute.
+    - num_top_k_scripts: Number of extraction scripts to ensemble.
+    - train_size: Number of sample files to use for training.
+    - combiner_mode: How to combine multiple extractions.
+    - use_dynamic_backoff: Use extraction functions or LLM to get values/profile/summary for attributes.
+        - True = Generate and use extraction functions
+        - False = No function generation, rely on direct LLM extraction
+    - KEYS: API keys for models.
+    """
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -434,7 +468,7 @@ def get_experiment_args():
 
     parser.add_argument(
         "--do_end_to_end",  
-        type=bool,
+        type=str,
         default="True", 
         help="True for generating schema from data/OpenIE, False for ClosedIE/given schema. Default is True genererate schema/OpenIE.",
     )
@@ -463,14 +497,14 @@ def get_experiment_args():
     parser.add_argument(
         "--combiner_mode",
         type=str,
-        default='ws',
+        default='mv',
         help="Combiner mode for combining the outputs of the generated functions",
         choices=['ws', 'mv', 'top_k']
     )
 
     parser.add_argument(
         "--use_dynamic_backoff",
-        type=bool,
+        type=str,
         default="True",  
         help="True (default) uses generated functions for extraction. Else, False uses evaporate direct/LLM cfor extraction."
     )
@@ -485,6 +519,8 @@ def get_experiment_args():
 
     print(f'{sys.argv=}')
     experiment_args = parser.parse_args(args=sys.argv[1:])
+    print(f'{experiment_args.do_end_to_end=}')
+    print(f'{type(experiment_args.do_end_to_end)=}')
     # - process non-standard args to behave correctly
     experiment_args.do_end_to_end = True if experiment_args.do_end_to_end.lower() == 'true' else False
     print(f'{experiment_args.do_end_to_end=} (learn schema/openie or not)')
@@ -498,16 +534,29 @@ def get_experiment_args():
 def main():
     print(f'Running main: {main=}')
     print(f"{os.getenv('CONDA_DEFAULT_ENV')=}")
-    # print(f'{sys.path=}')
-    experiment_args = get_experiment_args()
-    profiler_args = {}
-    profiler_args = set_profiler_args(profiler_args)
-
+    
+    # - Hack, hardcode openai key so that vscode debugger works
+    # keys = open(Path("~/keys/openai_api_brandos_personal_key.txt").expanduser()).read().strip()
+    keys = open(Path("~/keys/openai_api_key_brandos_koyejolab.txt").expanduser()).read().strip()
+    sys.argv[-1] = keys
+    
+    # - Get args
+    experiment_args = get_experiment_args()  # args for the ML e.g., combiner_mode. In run_profiler.py
+    profiler_args = set_profiler_args(profiler_args={})  # args for what profile/summary to extract from doc. In profiler_utils.py
+    
+    # -- model dict
+    # model_dict = {
+    #     'MODELS': ["text-davinci-003"],
+    #     'EXTRACTION_MODELS':  ["text-davinci-003"],  
+    #     'GOLD_KEY': "text-davinci-003",
+    # }
     model_dict = {
-        'MODELS': ["text-davinci-003"],
-        'EXTRACTION_MODELS':  ["text-davinci-003"],  
-        'GOLD_KEY': "text-davinci-003",
+        'MODELS': ["gpt-3.5-turbo"],
+        'EXTRACTION_MODELS':  ["gpt-3.5-turbo"],  
+        'GOLD_KEY': "gpt-3.5-turbo",
     }
+    print(f'{model_dict=}')
+
     # Example of how to use a locally-hosted FM
     # model_dict = {
     #     'MODELS': [" EleutherAI/gpt-j-6B"],
@@ -527,12 +576,9 @@ def main():
         print(f'experiment_args: {k=} {v=}')
         setattr(profiler_args, k, v)
 
-    # for k, v in vars(profiler_args).items():
-    #     print(f'profiler_args: {k=} {v=}')
     print(f'{profiler_args=}')
     if profiler_args.use_dynamic_backoff:
         print(f"Using dynamic backoff ==> generating functions (not Evaporate Direct)")
-    # st()
     run_experiment(profiler_args)
 
 

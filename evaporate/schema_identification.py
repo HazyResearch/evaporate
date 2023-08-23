@@ -51,7 +51,7 @@ def directly_extract_from_chunks_w_value(
     print(f'{num_chunks_per_file=}')
     # todo: why does it require more than 1 file?
     avg_num_chunks_per_file = statistics.mean(num_chunks_per_file)
-    stdev_num_chunks_per_file = statistics.stdev(num_chunks_per_file)
+    stdev_num_chunks_per_file = statistics.stdev(num_chunks_per_file) if len(num_chunks_per_file) > 1 else 0   
 
     for i, file in enumerate(sample_files):
         chunks = file2chunks[file]

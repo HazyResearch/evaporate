@@ -228,7 +228,7 @@ def evaluate(
             key2golds[key].append(gold_metadata)
             key2preds[key].append(pred_metadata)
 
-    # Handling abstensions
+    # Handling abstensions (refuses to give output correct values for attributed although present in doc)
     num_extractions = 0
     for golds in key2golds[key]:
         if golds and not any(golds.lower() == wd for wd in ['none']):

@@ -7,6 +7,8 @@ from manifest import Manifest
 from configs import get_args
 from prompts import Step
 
+from pathlib import Path
+
 cur_idx = 0
 
 def apply_prompt(step : Step, max_toks = 50, do_print=False, manifest=None, overwrite_cache=False):
@@ -90,7 +92,10 @@ def get_unique_file_types(files):
 
 
 def get_structure(dataset_name):
-    args = get_args(dataset_name)
+    """
+    Get args for data lake from config.py (and other structures related to the data lake).
+    """
+    args = get_args(dataset_name)  # get args for data lake config, in configs.py
     if not os.path.exists(args.cache_dir):
         os.makedirs(args.cache_dir)
         
@@ -149,7 +154,7 @@ def get_manifest_sessions(MODELS, MODEL2URL=None, KEYS=[]):
                     client_connection=key,
                 )
                 manifest_sessions[model].append(manifest)
-        elif any(kwd in model for kwd in ["gpt-4"]):
+        elif any(kwd in model for kwd in ["gpt-4", 'gpt-3.5-turbo']):
             if not KEYS:
                 raise ValueError("You must provide a list of keys to use these models.")
             for key in KEYS:
@@ -203,6 +208,20 @@ def get_manifest_session(
         **params,
         **cache_params,
     )
+
+    # import openai
+    # keys = open(Path("~/data/openai_api_key_koyejolab_brando.txt").expanduser()).read().strip()
+    # openai.BASE_API_URL = f'https://api.openai.com/v1/orgs/org-u64SQ7WRilfOivzCxLx2w91c'
+    # print(f'{keys=}')
+    # openai.api_key = keys
+    # # response = openai.ChatCompletion.create(model="gpt-3.5-turbo", temperature=0, messages=[{"role": "system", "content": "You are a highly skilled AI trained in language to be helpful."}, {"role": "user"}])
+    # # print(f"{response=}")
+    # chat_dict = [
+    #     {"role": "system", "content": "You are a helpful assistant."},
+    #     {"role": "user", "content": "Who won the world cup in 2006?"},
+    # ]
+    # response = manifest.run(chat_dict, max_tokens=100)
+    # print(f"{response=}")
     
     # st()
     # params = manifest.client_pool.get_client().get_model_params()

@@ -1,3 +1,6 @@
+"""
+So in essence, "profiling" here means building a concise profile or summary of the key information in documents by extracting fields and values. https://claude.ai/chat/8c19bc99-b203-44b2-a0b6-782c07b62f65
+"""
 import os
 import random
 from pathlib import Path
@@ -465,6 +468,7 @@ def get_model_extractions(
     overwrite_cache=False,
     collecting_preds=False,
 ):
+    """ Extract value for attribute given using LM. """
 
     num_errors = 0
     total_prompts = 0
@@ -585,25 +589,27 @@ def get_all_extractions(
     total_tokens_prompted = 0
     all_extractions = {}
 
-    # -- Get extractions from LLM models directly
-    # for model in MODELS:
-    #     manifest_session = manifest_sessions[model]
-    #     extractions, num_toks, errored_out = get_model_extractions(
-    #         file2chunks, 
-    #         sample_files, 
-    #         attribute,  
-    #         manifest_session,
-    #         model,
-    #         overwrite_cache=overwrite_cache,
-    #         collecting_preds=True,
-    #     )
+    #-- Get extractions from LLM models directly
+    for model in MODELS:
+        manifest_session = manifest_sessions[model]
+        # Extract values for attribute given using LM from file chunks.
+        extractions, num_toks, errored_out = get_model_extractions(
+            file2chunks, 
+            sample_files, 
+            attribute,  
+            manifest_session,
+            model,
+            overwrite_cache=overwrite_cache,
+            collecting_preds=True,
+        )
 
-    #     total_tokens_prompted += num_toks
-    #     if not errored_out:
-    #         all_extractions[model] = extractions
-    #     else:
-    #         print(f"Not applying {model} extractions")
-    #         return 0, 0, total_tokens_prompted
+        total_tokens_prompted += num_toks
+        if not errored_out:
+            all_extractions[model] = extractions
+        else:
+            print(f"Not applying {model} extractions")
+            return 0, 0, total_tokens_prompted
+    print(f'{all_extractions=}')
 
     # -- Generate extraction functions using LLM model
     manifest_session = manifest_sessions[GOLD_KEY]
@@ -671,7 +677,7 @@ def run_profiler(run_string, args, file2chunks, file2contents, sample_files, gro
     if file2chunks is None:
         return total_tokens_prompted, 0
 
-    # PREDICT: get extractions from the synthesized functions and the LM on the sample documents
+    # PREDICT: get extractions using the synthesized functions and the LM on the sample documents
     all_extractions, function_dictionary, num_toks = get_all_extractions(
         file2chunks,
         file2contents,

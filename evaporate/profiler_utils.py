@@ -7,6 +7,18 @@ from collections import Counter, defaultdict
 
 
 def set_profiler_args(profiler_args):
+    """
+    Configures the profiler (=summarizer) pipeline itself e.g., size of chunk, eval_size, if remove_tables or not etc.
+    How the profile/summary of the document will look like. 
+    While the experiment_args is the hyperparameters for the actual experiment 
+    e.g., if the combiner is weak-supervised (ws) or majority-vote (mv), etc.
+
+    I removed all args that were part of the experiment to make this less confusing. 
+    This will be as much as I can only about the profiling/summarization pipeline and not how the experiment
+    works becuase of the ML.
+
+    So crucial to merge the two args into one properly before running experiment. 
+    """
 
     parser = argparse.ArgumentParser(
         "LLM profiler.",
@@ -19,11 +31,11 @@ def set_profiler_args(profiler_args):
         default=5000
     )
 
-    parser.add_argument(
-        "--train_size",
-        type=int,
-        default=15,
-    )
+    # parser.add_argument(
+    #     "--train_size",
+    #     type=int,
+    #     default=15,
+    # )
 
     parser.add_argument(
         "--eval_size",
@@ -37,18 +49,18 @@ def set_profiler_args(profiler_args):
         default=-1,
     )
 
-    parser.add_argument(
-        "--num_top_k_scripts",
-        type=int,
-        default=1,
-        help="of all the scripts we generate for the metadata fields, number to retain after scoring their qualities",
-    )
+    # parser.add_argument(
+    #     "--num_top_k_scripts",
+    #     type=int,
+    #     default=1,
+    #     help="of all the scripts we generate for the metadata fields, number to retain after scoring their qualities",
+    # )
 
     parser.add_argument(
         "--extraction_fraction_thresh",
         type=int,
         default=0.9,
-        help="for abstensions approach",
+        help="for abstensions (=miss/omission/failure to extract) approach",
     )
 
     parser.add_argument(
@@ -71,12 +83,12 @@ def set_profiler_args(profiler_args):
         default=15,
     )
 
-    parser.add_argument(
-        "--use_dynamic_backoff",
-        type=bool,
-        default=True,
-        help="Whether to do the function generation workflow or directly extract from chunks",
-    )
+    # parser.add_argument(
+    #     "--use_dynamic_backoff",
+    #     type=bool,
+    #     default=True,
+    #     help="Whether to do the extraction function generation workflow or directly extract using LLM from chunks, to get data from doc for attributes.",
+    # )
 
     parser.add_argument(
         "--use_qa_model",
@@ -153,12 +165,12 @@ def set_profiler_args(profiler_args):
         help="For ablations that select functions using ground truth instead of the FM.",
     )
 
-    parser.add_argument(
-        "--combiner_mode",
-        type=str,
-        default='mv',
-        help="For ablations that select functions using ground truth instead of the FM.",
-    )
+    # parser.add_argument(
+    #     "--combiner_mode",
+    #     type=str,
+    #     default='mv',
+    #     help="For ablations that select functions using ground truth instead of the FM.",
+    # )
 
     parser.add_argument(
         "--use_alg_filtering",
