@@ -96,6 +96,8 @@ def get_structure(dataset_name):
     Get args for data lake from config.py (and other structures related to the data lake).
     """
     args = get_args(dataset_name)  # get args for data lake config, in configs.py
+    # - For this to work MODELS is called fist so get_experiment_args and get_profiler_args are gotten first then the MODELS dict that is harcoded this this get_args, get_structure.
+    args.generative_index_path = f'{args.generative_index_path}/{"_".join(profiler_args.MODELS)}'
     if not os.path.exists(args.cache_dir):
         os.makedirs(args.cache_dir)
         

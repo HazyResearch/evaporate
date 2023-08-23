@@ -2,9 +2,24 @@
 So in essence, "profiling" here means building a concise profile or summary of the key information in documents 
 by extracting fields and values. https://claude.ai/chat/8c19bc99-b203-44b2-a0b6-782c07b62f65
 
-abstention = deliberately miss/omit something or refuse/failure to do something
-abstention (evaporate) = omit/miss/failure to extract data from the document. 
-The model/extraction function "refused"/failed to yield the information for the attribute from the doc. 
+Abstention commonly means deliberate refusal/failure, whereas in Evaporate it refers to a failure/refusal to extract an attribute value from a document.
+
+-- Overview of codebase
+get_experiment_args - def in run_profiler.py
+get_profiler_args - def in profiler_utils.py
+get_structure in utils.py calls -> get_args - def in configs.py
+
+# -- Running run_profiler.py notes
+- data_lake: Name of the data lake dataset.  
+- do_end_to_end: Whether to perform OpenIE (learn schema) or ClosedIE (use predefined schema).
+- num_attr_to_cascade: Number of attributes to extract. One set of extractor functions per attribute.
+- num_top_k_scripts: Number of extraction scripts to ensemble.
+- train_size: Number of sample files to use for training.
+- combiner_mode: How to combine multiple extractions.
+- use_dynamic_backoff: Use extraction functions or LLM to get values/profile/summary for attributes.
+    - True = Generate and use extraction functions
+    - False = No function generation, rely on direct LLM extraction
+- KEYS: API keys for models.
 """
 import os
 import sys
@@ -118,6 +133,10 @@ def get_run_string(
 
 
 def get_gold_metadata(args):
+    """
+    From gold_extractions_file i.e. gold file -> attr: extracted_val infer a solid
+    list of attributes by counting the most frequent attributes.
+    """
     # get the list of gold metadata for closed-IE runs
     try:
         with open(args.gold_extractions_file) as f:
@@ -254,8 +273,10 @@ def run_experiment(profiler_args):
     today = datetime.datetime.today().strftime("%m%d%Y") 
     print(f'{today=}')
     
+    # - Get args for data lake
     setattr(profiler_args, 'chunk_size', 3000)
-    _, _, _, _, args = get_structure(data_lake)  # Get args for data lake from data lake config. In config.py 
+    _, _, _, _, args = get_structure(data_lake)  # Get args for data lake from data lake config. In config.py calls get_args
+
     print(f'{args=}')
     file_groups, extractions_file, parser, full_file_groups = get_data_lake_info(args, data_lake)
     file2chunks, file2contents, manifest_sessions = prepare_data(
@@ -266,13 +287,15 @@ def run_experiment(profiler_args):
     }
 
     # todo: perhaps hard code some attributes, perhaps robust llm works?
-    import yaml
-    # gold_attributes = get_gold_metadata(args)
-    # gold_attributes = keys = list(json.load(open("/lfs/ampere1/0/brando9/data/evaporate/data/ground_truth/small_debug_lin_alg_textbook_gold_extractions.json")).keys())
-    # gold_attributes = ['definition', 'proof', 'theorem']
-    data = yaml.safe_load(open(Path('~/evaporate/maf_config.yaml').expanduser(), 'r'))
-    gold_attributes = data['gold_attributes']
-    print(f'{gold_attributes=}')
+    if not do_end_to_end:  # closed ie
+        if 'gold_attributes.yaml' in args.gold_extractions_file:
+            import yaml
+            print(f'{args.gold_extractions_file=}')
+            data = yaml.safe_load(open(Path(args.gold_extractions_file).expanduser(), 'r'))
+            gold_attributes = data['gold_attributes']
+        else:
+            gold_attributes = get_gold_metadata(args)  # original evaporate code
+        print(f'{gold_attributes=}')
 
     results_by_train_size = defaultdict(dict)
     total_time_dict = defaultdict(dict) 
@@ -538,7 +561,8 @@ def main():
     # - Hack, hardcode openai key so that vscode debugger works
     # keys = open(Path("~/keys/openai_api_brandos_personal_key.txt").expanduser()).read().strip()
     keys = open(Path("~/keys/openai_api_key_brandos_koyejolab.txt").expanduser()).read().strip()
-    sys.argv[-1] = keys
+    # sys.argv[-1] = keys
+    sys.argv = [arg.replace('HARDCODE_IN_PYTHON', keys) for arg in sys.argv]
     
     # - Get args
     experiment_args = get_experiment_args()  # args for the ML e.g., combiner_mode. In run_profiler.py
@@ -550,6 +574,11 @@ def main():
     #     'EXTRACTION_MODELS':  ["text-davinci-003"],  
     #     'GOLD_KEY': "text-davinci-003",
     # }
+    model_dict = {
+        'MODELS': ["gpt-3.5-turbo"],
+        'EXTRACTION_MODELS':  ["gpt-3.5-turbo"],  
+        'GOLD_KEY': "gpt-3.5-turbo",
+    }
     model_dict = {
         'MODELS': ["gpt-3.5-turbo"],
         'EXTRACTION_MODELS':  ["gpt-3.5-turbo"],  
@@ -579,6 +608,8 @@ def main():
     print(f'{profiler_args=}')
     if profiler_args.use_dynamic_backoff:
         print(f"Using dynamic backoff ==> generating functions (not Evaporate Direct)")
+    # profiler_args.overwrite_cache = 1
+    print(f'{profiler_args.overwrite_cache=}')
     run_experiment(profiler_args)
 
 

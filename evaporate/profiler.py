@@ -690,6 +690,7 @@ def run_profiler(run_string, args, file2chunks, file2contents, sample_files, gro
         use_qa_model=profiler_args.use_qa_model,
         overwrite_cache=profiler_args.overwrite_cache,
     )
+    # print(f'{all_extractions=}')
     total_tokens_prompted += num_toks
     if not all_extractions:
         return total_tokens_prompted, 0
@@ -775,29 +776,41 @@ def run_profiler(run_string, args, file2chunks, file2contents, sample_files, gro
 
     # Save: all_extractions, functions, all_metrics, top_k_keys, file2metadata and top_k_extractions.
     print('Save: all_extractions, functions, all_metrics, top_k_keys, file2metadata and top_k_extractions.')
+    current_file_path = None # just so the error tells me which path failed
     try:
-        with open(f"{args.generative_index_path}/{run_string}_{file_attribute}_all_extractions.json", "w") as f:
+        print('args.generative_index_path}/{run_string}_{file_attribute}_')
+        print(f'{args.generative_index_path}/{run_string}_{file_attribute}_')
+
+        current_file_path = f"{args.generative_index_path}/{run_string}_{file_attribute}_all_extractions.json"
+        with open(current_file_path, "w") as f:
             json.dump(all_extractions, f, indent=4)
 
-        with open(f"{args.generative_index_path}/{run_string}_{file_attribute}_functions.json", "w") as f:
+        current_file_path = f"{args.generative_index_path}/{run_string}_{file_attribute}_functions.json"
+        with open(current_file_path, "w") as f:
             json.dump(function_dictionary, f, indent=4)
 
-        with open(f"{args.generative_index_path}/{run_string}_{file_attribute}_all_metrics.json", "w") as f:
+        current_file_path = f"{args.generative_index_path}/{run_string}_{file_attribute}_all_metrics.json"
+        with open(current_file_path, "w") as f:
             json.dump(all_metrics, f, indent=4)
 
-        with open(f"{args.generative_index_path}/{run_string}_{file_attribute}_top_k_keys.json", "w") as f:
+        current_file_path = f"{args.generative_index_path}/{run_string}_{file_attribute}_top_k_keys.json"
+        with open(current_file_path, "w") as f:
             json.dump(selected_keys, f, indent=4)
 
-        with open(f"{args.generative_index_path}/{run_string}_{file_attribute}_file2metadata.json", "w") as f:
+        current_file_path = f"{args.generative_index_path}/{run_string}_{file_attribute}_file2metadata.json"
+        with open(current_file_path, "w") as f:
             json.dump(file2metadata, f, indent=4)
 
-        with open(f"{args.generative_index_path}/{run_string}_{file_attribute}_top_k_extractions.json", "w") as f:
+        current_file_path = f"{args.generative_index_path}/{run_string}_{file_attribute}_top_k_extractions.json"
+        with open(current_file_path, "w") as f:
             json.dump(top_k_extractions, f, indent=4)
 
         return total_tokens_prompted, 1
 
     except Exception as e:
+        print(f'Exception saving to file:\n\t{current_file_path}\n\tWith exception: {e=}.')
         pass
+
 
     try:
         clean_file2metadata = {}
