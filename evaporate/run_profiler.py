@@ -51,6 +51,12 @@ def get_data_lake_info(args, data_lake, DATA_DIR = "/data/evaporate"):
     if not DATA_DIR.endswith("/"):
         DATA_DIR += "/"
     file_groups = [f"{DATA_DIR}{file_group}" for file_group in file_groups if not file_group.startswith(".")]
+    file_groups_new = []
+    # for file_group in file_groups:
+    #     if not file_group.startswith("."):
+    #         file_group.append(f"{DATA_DIR}{file_group}")
+    #     # if os.path.isdir(f"{DATA_DIR}{file_group}"):
+    #     #     continue
     full_file_groups = file_groups.copy()
     extractions_file = args.gold_extractions_file
     parser = "txt"
@@ -65,6 +71,11 @@ def chunk_files(file_group, parser, chunk_size, remove_tables, max_chunks_per_fi
     file2chunks = {}
     file2contents = {}
     for file in tqdm(file_group, total=len(file_group), desc="Chunking files"):
+        # # print(f'{file=}')
+        # # - skip if directory
+        # if os.path.isdir(file):
+        #     continue
+        # # - process if text file
         content, chunks = chunk_file(
             parser, 
             file, 
@@ -77,6 +88,7 @@ def chunk_files(file_group, parser, chunk_size, remove_tables, max_chunks_per_fi
             chunks = chunks[:max_chunks_per_file] 
         file2chunks[file] = chunks
         file2contents[file] = content
+    # print(f'{file2contents.keys()=}')
     return file2chunks, file2contents
 
 
@@ -275,8 +287,8 @@ def run_experiment(profiler_args):
     
     # - Get args for data lake
     setattr(profiler_args, 'chunk_size', 3000)
-    _, _, _, _, args = get_structure(data_lake)  # Get args for data lake from data lake config. In config.py calls get_args
-
+    # _, _, _, _, args = get_structure(data_lake)  # Get args for data lake from data lake config. In config.py calls get_args
+    _, _, _, _, args = get_structure(data_lake, profiler_args=profiler_args, exist_ok=True)  # Get args for data lake from data lake config. In config.py calls get_args
     print(f'{args=}')
     file_groups, extractions_file, parser, full_file_groups = get_data_lake_info(args, data_lake)
     file2chunks, file2contents, manifest_sessions = prepare_data(
@@ -559,8 +571,9 @@ def main():
     print(f"{os.getenv('CONDA_DEFAULT_ENV')=}")
     
     # - Hack, hardcode openai key so that vscode debugger works
-    # keys = open(Path("~/keys/openai_api_brandos_personal_key.txt").expanduser()).read().strip()
     keys = open(Path("~/keys/openai_api_key_brandos_koyejolab.txt").expanduser()).read().strip()
+    # keys = open(Path("~/keys/openai_api_brandos_personal_key.txt").expanduser()).read().strip()
+    # - put the opeanai api key in the sys.argv so code works
     # sys.argv[-1] = keys
     sys.argv = [arg.replace('HARDCODE_IN_PYTHON', keys) for arg in sys.argv]
     
@@ -579,11 +592,12 @@ def main():
         'EXTRACTION_MODELS':  ["gpt-3.5-turbo"],  
         'GOLD_KEY': "gpt-3.5-turbo",
     }
-    model_dict = {
-        'MODELS': ["gpt-3.5-turbo"],
-        'EXTRACTION_MODELS':  ["gpt-3.5-turbo"],  
-        'GOLD_KEY': "gpt-3.5-turbo",
-    }
+    # model_dict = {
+    #     'MODELS': ["gpt-4"],
+    #     'EXTRACTION_MODELS':  ["gpt-4"],  
+    #     'GOLD_KEY': "gpt-4",
+    # }
+    # load model dict from yaml file
     print(f'{model_dict=}')
 
     # Example of how to use a locally-hosted FM

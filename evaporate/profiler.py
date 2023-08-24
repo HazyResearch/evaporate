@@ -151,13 +151,26 @@ def combine_extractions(
             )
             all_file2extractions[file].append(extraction)
 
+    # if combiner_mode == "mv" or combiner_mode == "top_k":
+    #     for file, extractions in all_file2extractions.items():
+    #         if extraction_fraction >= extraction_fraction_thresh:
+    #             extractions = [e for e in extractions if e]
+    #             if not extractions:
+    #                 extractions = ['']
+    #         final_extractions[file] = str(Counter(extractions).most_common(1)[0][0])
     if combiner_mode == "mv" or combiner_mode == "top_k":
         for file, extractions in all_file2extractions.items():
-            if extraction_fraction >= extraction_fraction_thresh:
+            # Filter out empty extractions if fraction above threshold 
+            if extraction_fraction >= extraction_fraction_thresh:  
                 extractions = [e for e in extractions if e]
                 if not extractions:
                     extractions = ['']
-            final_extractions[file] = str(Counter(extractions).most_common(1)[0][0])
+            # Tally up votes for each value using Counter
+            counted_extractions = Counter(extractions) 
+            # Get the most common value
+            top_value = counted_extractions.most_common(1)[0][0]
+            # Set the top voted value as the final extraction
+            final_extractions[file] = top_value
 
     elif combiner_mode == "ws":
         preds, used_deps, missing_files = run_ws(
@@ -206,7 +219,9 @@ def apply_final_ensemble(
     MODELS=[],
     overwrite_cache=False,
     do_end_to_end=False,
+    args = None,
 ):
+    print(f'{function_cache=}')
     all_extractions = {}
     total_tokens_prompted = 0
     for key in selected_keys:
@@ -220,6 +235,7 @@ def apply_final_ensemble(
                 attribute,
                 data_lake=data_lake,
                 function_cache=function_cache,
+                args=args
             )
             t1 = time.time()
             total_time = t1 - t0
@@ -258,13 +274,23 @@ def apply_final_profiling_functions(
     attribute,
     data_lake='',
     function_cache=False,
-):
-    
+    args = None,
+    ):
+    print(f'--> {args=}')
+    function_cache = True  # hardcoded TODO
+    print(f'{function_cache=} (hardcoded)') 
+    # perhaps fix later to store fn's always original https://github.com/HazyResearch/evaporate/blob/83204a54dd97fb0f51a01643b4fc16c97fc5e472/evaporate/profiler.py#L249
     if function_cache:
         original_fn = fn
         file_attribute = attribute.replace(" ", "_").replace("/", "_").lower()
-        # cache_dir = "./function_cache/" 
-        cache_dir = f"{Path('~/data/evaporate/').expanduser()}/function_cache/" 
+        # - set cach_dir (for /function_cache/)
+        if args is None:
+            cache_dir = "./function_cache/"
+        else:
+            # cache_dir = "./function_cache/"
+            cache_dir = args.cache_dir + '/function_cache/'
+        print(f'{cache_dir=}')
+        # - create function_cache dir
         if not os.path.exists(cache_dir):
             os.makedirs(cache_dir)
         cache_path = f"{cache_dir}function_cache_{file_attribute}_{data_lake}.pkl" 
@@ -627,11 +653,13 @@ def get_all_extractions(
     # -- Get extractions from synthesized functions
     function_dictionary = defaultdict(dict)
     for fn_key, fn in functions.items():
+        print(f'\n{args=}')
         all_extractions[fn_key], num_function_errors = apply_final_profiling_functions(
             file2contents, 
             sample_files,
             fn,
             attribute,
+            args=args 
         )
         function_dictionary[fn_key]['function'] = fn
         function_dictionary[fn_key]['promptsource'] = function_promptsource[fn_key]
@@ -777,11 +805,13 @@ def run_profiler(run_string, args, file2chunks, file2contents, sample_files, gro
     # Save: all_extractions, functions, all_metrics, top_k_keys, file2metadata and top_k_extractions.
     print('Save: all_extractions, functions, all_metrics, top_k_keys, file2metadata and top_k_extractions.')
     current_file_path = None # just so the error tells me which path failed
+    exist_ok = True
     try:
         print('args.generative_index_path}/{run_string}_{file_attribute}_')
         print(f'{args.generative_index_path}/{run_string}_{file_attribute}_')
 
         current_file_path = f"{args.generative_index_path}/{run_string}_{file_attribute}_all_extractions.json"
+        os.makedirs(args.generative_index_path, exist_ok=exist_ok)
         with open(current_file_path, "w") as f:
             json.dump(all_extractions, f, indent=4)
 
@@ -808,9 +838,9 @@ def run_profiler(run_string, args, file2chunks, file2contents, sample_files, gro
         return total_tokens_prompted, 1
 
     except Exception as e:
-        print(f'Exception saving to file:\n\t{current_file_path}\n\tWith exception: {e=}.')
-        pass
-
+        import traceback
+        traceback.print_exc()  # This will print the full stack trace
+        raise Exception(f'Error saving to file {e}:\n\t{current_file_path}\n\tWith exception.')
 
     try:
         clean_file2metadata = {}

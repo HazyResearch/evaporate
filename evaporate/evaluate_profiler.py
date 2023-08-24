@@ -192,7 +192,16 @@ def evaluate(
     Inputs include extraction dict, gold key, configs.
     Outputs are quality metrics and gold labels.
     Notes techniques like using abstentions.
+
+    Q: https://github.com/HazyResearch/evaporate/issues/28
     """
+    if combiner_mode == 'mv':
+        key2golds = defaultdict(list)
+        metrics = {} 
+        total_tokens_prompted = 0
+        return metrics, key2golds, total_tokens_prompted
+
+    # -- Original Evaporate code --
     normalized_field_name = field
     for char in ["'", ":", "<", ">", '"', "_", "-", " ", "none"]:
         normalized_field_name = normalized_field_name.replace(char, "")

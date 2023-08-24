@@ -1,5 +1,5 @@
-
 import re
+import os
 import argparse
 import random
 from bs4 import BeautifulSoup
@@ -203,6 +203,8 @@ def sample_scripts(files, train_size=5):
         sample_files = files
     sample_contents = []
     for sample_file in sample_files:
+        # if os.path.isdir(sample_file):
+        #     continue
         with open(sample_file, 'r') as f:
             sample_contents.append(f.read())
     return sample_files

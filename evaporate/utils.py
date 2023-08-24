@@ -91,21 +91,26 @@ def get_unique_file_types(files):
     return suffix2file, suffix2count
 
 
-def get_structure(dataset_name):
+def get_structure(dataset_name, profiler_args = None, exist_ok=False):
     """
     Get args for data lake from config.py (and other structures related to the data lake).
     """
     args = get_args(dataset_name)  # get args for data lake config, in configs.py
+    # - Put mode
+    # args.generative_index_path = f'{args.generative_index_path}/{"_".join(profiler_args.MODELS)}' if profiler_args is not None else args.generative_index_path
+    # args.cache_dir = f'{args.cache_dir}/{"_".join(profiler_args.MODELS)}' if profiler_args is not None else args.cache_dir
+    print(f'{profiler_args.MODELS=}')
+    args.generative_index_path = f'{args.generative_index_path}/{"_".join(profiler_args.MODELS)}' 
+    args.cache_dir = f'{args.cache_dir}/{"_".join(profiler_args.MODELS)}'
     # - For this to work MODELS is called fist so get_experiment_args and get_profiler_args are gotten first then the MODELS dict that is harcoded this this get_args, get_structure.
-    args.generative_index_path = f'{args.generative_index_path}/{"_".join(profiler_args.MODELS)}'
     if not os.path.exists(args.cache_dir):
-        os.makedirs(args.cache_dir)
+        os.makedirs(args.cache_dir, exist_ok=exist_ok)
         
     if not os.path.exists(args.generative_index_path):
-        os.makedirs(args.generative_index_path)
+        os.makedirs(args.generative_index_path, exist_ok=exist_ok)
 
     if not os.path.exists(args.generative_index_path):
-        os.makedirs(args.generative_index_path)
+        os.makedirs(args.generative_index_path, exist_ok=exist_ok)
     
     # all files
     cache_path = f"{args.cache_dir}/all_files.json"
