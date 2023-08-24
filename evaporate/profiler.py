@@ -27,7 +27,8 @@ warnings.filterwarnings("ignore", category=UserWarning, module="bs4")
 warnings.filterwarnings("ignore", category=UserWarning, module="BeautifulSoup")
 warnings.filterwarnings("ignore", category=UserWarning, module="lxml")
 
-from prompts import (METADATA_GENERATION_FOR_FIELDS, EXTRA_PROMPT, METADATA_EXTRACTION_WITH_LM, METADATA_EXTRACTION_WITH_LM_ZERO_SHOT, IS_VALID_ATTRIBUTE, Step,)
+# from prompts import (METADATA_GENERATION_FOR_FIELDS, EXTRA_PROMPT, METADATA_EXTRACTION_WITH_LM, METADATA_EXTRACTION_WITH_LM_ZERO_SHOT, IS_VALID_ATTRIBUTE, Step,)
+from prompts_math import (METADATA_GENERATION_FOR_FIELDS, EXTRA_PROMPT, METADATA_EXTRACTION_WITH_LM, METADATA_EXTRACTION_WITH_LM_ZERO_SHOT, IS_VALID_ATTRIBUTE, Step,)
 from utils import apply_prompt, get_file_attribute
 from evaluate_profiler import get_topk_scripts_per_field, evaluate
 from profiler_utils import filter_file2chunks, check_vs_train_extractions, clean_function_predictions
@@ -401,6 +402,7 @@ def get_functions(
         total=len(sample_files),
         desc=f"Generating functions for attribute {attribute}",
     ):
+        print(f'{attribute=}')
         chunks = file2chunks[file]
         for chunk in chunks:
             function_field = get_function_field_from_attribute(attribute)

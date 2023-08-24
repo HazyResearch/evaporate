@@ -300,10 +300,10 @@ def run_experiment(profiler_args):
 
     # todo: perhaps hard code some attributes, perhaps robust llm works?
     if not do_end_to_end:  # closed ie
-        if 'gold_attributes.yaml' in args.gold_extractions_file:
+        # load gold attributes from file AND contains gold_attributes.yaml 
+        if 'gold_attributes.yaml' in getattr(args, 'gold_attributes_file', ''):
             import yaml
-            print(f'{args.gold_extractions_file=}')
-            data = yaml.safe_load(open(Path(args.gold_extractions_file).expanduser(), 'r'))
+            data = yaml.safe_load(open(Path(args.gold_attributes_file).expanduser(), 'r'))
             gold_attributes = data['gold_attributes']
         else:
             gold_attributes = get_gold_metadata(args)  # original evaporate code

@@ -13,6 +13,7 @@ _REQUIRED = [
     'snorkel-metal', 
     'tensorboardX',
     'pyyaml',
+    'TexSoup',
 ]
 
 setup(

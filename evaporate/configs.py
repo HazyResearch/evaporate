@@ -115,12 +115,15 @@ def get_args(database_name):
     args = parser.parse_args(args=[])
 
     args_fill = CONSTANTS[database_name]
+    print(f'{args_fill=}')
     args.data_dir = args_fill["data_dir"]
     args.cache_dir = args_fill["cache_dir"]
     args.generative_index_path = args_fill["generative_index_path"]
     args.topic = args_fill['topic']
     args.gold_extractions_file = args_fill['gold_extractions_file']
+    args.gold_attributes_file = args_fill['gold_attributes_file']
     args.data_lake = database_name
+    print(f'{args.data_lake=}')
     if 'set_dicts' in args_fill:
         args.set_dicts = args_fill['set_dicts']
 
