@@ -389,7 +389,6 @@ def get_function_field_from_attribute(attribute):
 def get_functions(
     file2chunks,
     sample_files,
-    all_extractions,
     attribute,
     manifest_session,
     overwrite_cache=False,
@@ -576,19 +575,19 @@ def get_model_extractions(
 
 
 def get_all_extractions(
-        file2chunks,
-        file2contents,
+        file2chunks: dict[str, list[str]],  # {filename: [chunk1, chunk2, ...]}
+        file2contents: dict[str, str],  # {filename: content}
         sample_files,
-        attribute, 
+        attribute: str, # e.g., definition, example, theorem, proof, etc.
         manifest_sessions,
         MODELS,
-        GOLD_KEY,
+        GOLD_KEY, 
         args,
         use_qa_model=False,
         overwrite_cache=False,
     ):
     """
-  Extract metadata from sample files using models and synthesized functions.
+  Extract attribute values from sample files using models and synthesized functions.
 
   Args:
     file2chunks: Mapping of files to chunks.
@@ -604,7 +603,7 @@ def get_all_extractions(
 
   Returns:
     all_extractions: Dict of extractions from all models and functions.
-    function_dict: Metadata on generated functions.
+    function_dict: attribute values on generated functions.
     total_tokens: Number of tokens prompted.
 
   Gets extractions for the attribute from:
@@ -619,6 +618,7 @@ def get_all_extractions(
     all_extractions = {}
 
     #-- Get extractions from LLM models directly
+    # same as get_extractions_directly_from_LLM_model (todo re-use code?)
     for model in MODELS:
         manifest_session = manifest_sessions[model]
         # Extract values for attribute given using LM from file chunks.
@@ -645,7 +645,6 @@ def get_all_extractions(
     functions, function_promptsource, num_toks = get_functions(
         file2chunks, 
         sample_files, 
-        all_extractions[GOLD_KEY],
         attribute, 
         manifest_session,
         overwrite_cache=overwrite_cache,
@@ -671,7 +670,7 @@ def get_all_extractions(
 
 def run_profiler(run_string, args, file2chunks, file2contents, sample_files, group_files, manifest_sessions, attribute, profiler_args):
     """
-  Run profiling pipeline to extract metadata for a single attribute.
+  Run profiling pipeline to extract attr data for a single attribute.
 
   Args:
     run_string: Unique ID string for this run.
@@ -861,3 +860,95 @@ def run_profiler(run_string, args, file2chunks, file2contents, sample_files, gro
 
     return total_tokens_prompted, 0
 
+def get_extractions_directly_from_LLM_model(
+                                file2chunks: dict[str, list[str]], # for 1 chunk do {filename: [chunk1]}
+                                attribute: str, # e.g., definition, example, theorem, proof, etc.
+                                manifest_sessions,  # dict[str, Session]
+                                MODELS: list[str],  # e.g., ['gpt-3.5-turbo] 
+                                sample_files: list[str],  # given code I read, it seems to restrict which chunks to look at from file2chunks, thus semantically it limits which chunks we extract data by using filename 
+                                overwrite_cache: bool = False,
+                                ) -> tuple[dict[str, dict[dict, list[str]]], int]]:
+    """
+    For current attribute, extract data from chunks using LLM models directly.
+    Set file2chunks = {filename -> [chunk]} to process a single chunk. 
+
+    """
+    total_tokens_prompted = 0
+    all_extractions: dict[str, dict[dict, list[str]]]  # {mdl_name, {filename, [extractions]}}, attr
+    #-- Get extractions from LLM models directly
+    for model in MODELS:
+        manifest_session = manifest_sessions[model]
+        # Extract values for attribute given using LM from file chunks.
+        extractions, num_toks, errored_out = get_model_extractions(
+            file2chunks, 
+            sample_files, 
+            attribute,  
+            manifest_session,
+            model,
+            overwrite_cache=overwrite_cache,
+            collecting_preds=True,
+        )
+
+        total_tokens_prompted += num_toks
+        if not errored_out:
+            all_extractions[model] = extractions
+        else:
+            print(f"Not applying {model} extractions")
+            return 0, 0, total_tokens_prompted
+    # print(f'{all_extractions=}') 
+    return all_extractions, total_tokens_prompted
+
+ def get_extractions_from_synthesized_functions(
+                                                file2chunks: dict[str, list[str]], # for 1 chunk do {filename: [chunk1]}
+                                                attribute: str, # e.g., definition, example, theorem, proof, etc.
+                                                manifest_sessions,  # dict[str, Session]
+                                                MODELS: list[str],  # e.g., ['gpt-3.5-turbo'] 
+                                                GOLD_KEY: str , # e.g. gpt-3.5-turbo, profiler_args.GOLD_KEY
+                                                sample_files: list[str],  # in this context it does limit which files from data labe/textbook LLM uses to synthesize extraction functions functions
+                                                overwrite_cache: bool = False,
+    ):
+    """ 
+    """
+    # -- Generate extraction functions using LLM model
+    manifest_session = manifest_sessions[GOLD_KEY]
+    functions, function_promptsource, num_toks = get_functions(
+        file2chunks, 
+        sample_files, 
+        attribute, 
+        manifest_session,
+        overwrite_cache=overwrite_cache,
+    )
+    print(f"Number of functions: {len(functions)}")
+    total_tokens_prompted += num_toks
+
+    # -- Get extractions from synthesized functions
+    function_dictionary = defaultdict(dict)
+    for fn_key, fn in functions.items():
+        print(f'\n{args=}')
+        all_extractions[fn_key], num_function_errors = apply_final_profiling_functions(
+            file2contents 
+            sample_files,
+            fn,
+            attribute,
+            args=args 
+        )
+        function_dictionary[fn_key]['function'] = fn
+        function_dictionary[fn_key]['promptsource'] = function_promptsource[fn_key]
+    return all_extractions, function_dictionary, total_tokens_prompted
+
+def f(file2contents, sample_files, functions, attribute, args):
+    # -- Get extractions from synthesized functions
+    function_dictionary = defaultdict(dict)
+    all_extractions: dict[str, dict[dict, list[str]]]  # {fn_key, {filename, [extractions]}}, attr
+    for fn_key, fn in functions.items():
+        print(f'\n{args=}')
+        all_extractions[fn_key], num_function_errors = apply_final_profiling_functions(
+            file2contents 
+            sample_files,
+            fn,
+            attribute,
+            args=args 
+        )
+        function_dictionary[fn_key]['function'] = fn
+        function_dictionary[fn_key]['promptsource'] = function_promptsource[fn_key]
+    return all_extractions, function_dictionary, total_tokens_prompted

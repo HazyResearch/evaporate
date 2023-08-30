@@ -37,7 +37,7 @@ from collections import defaultdict, Counter
 from utils import get_structure, get_manifest_sessions, get_file_attribute
 from profiler_utils import chunk_file, sample_scripts, set_profiler_args, filter_file2chunks
 from schema_identification import identify_schema
-from profiler import run_profiler, get_all_extractions
+from profiler import run_profiler, get_all_extractions, get_extractions_directly_from_LLM_model, get_extractions_functions
 from evaluate_synthetic import main as evaluate_synthetic_main
 
 from pdb import set_trace as st
@@ -315,6 +315,7 @@ def run_experiment(profiler_args):
     num_attr_to_cascade = profiler_args.num_attr_to_cascade
     train_size = profiler_args.train_size
     data_lake = profiler_args.data_lake 
+    overwrite_cache = profiler_args.overwrite_cache
     chunk_size = 3000
     print(f'{do_end_to_end=}. If True then OpenIE (learn schema) else ClosedIE (ground truth/human specified).')
     print(f'{chunk_size=}')
@@ -341,7 +342,8 @@ def run_experiment(profiler_args):
     # NOTE: you might have to make chunking more robust later to not accidentally chunk/chop a theorem/definition in the middle.
     print(f'{full_file_groups=}')
     print(f'{parser=}')
-    file2chunks: dict = {}  # {filename: chunks}
+    file2chunks: dict[str, list[str]] = {}  # {filename: chunks}
+    file2contents: dict[str, str] = {}  # {filename: contents}  entire contents of file (textbook here)!
     file2chunks, file2contents = prepare_data(profiler_args, full_file_groups, parser)
     manifest_sessions = get_manifest_sessions(profiler_args.MODELS, MODEL2URL=profiler_args.MODEL2URL, KEYS=profiler_args.KEYS)
     # Get dict of {model_name: manifest_session}
@@ -367,54 +369,47 @@ def run_experiment(profiler_args):
     print(f'{filename=}')
     chunks: list[str] = file2chunks[filename]
     print(f'{len(chunks)=}')
-    print(f'{chunks=}')
+    # print(f'{chunks=}')
+    # contents: str = file2contents[filename]
+    # print(f'{contents=}')
 
-    # total_tokens_prompted = 0 update later
-    for filename, chunk in file2chunks.items():
+    # -- Loop through every file in textbook (=data lake) and every chunk in it's txt file and extract attributes in right order
+    filename: str
+    print(f'processing files in {data_lake=} (data lake ~ textbook)')
+    for filename in file2chunks.keys():
         print(f'{filename=}')
-        print(f'{chunk=}')
-        # -- Get all candidate extractd data wrt attributes in current chunk
-        extractions = []  # {extracted_data: , attr: , method_or_fun_name:, file_name:}
-        for attribute in attributes:
-            print(f'{attribute=}, {attribute.lower()=}')
-            attribute = attribute.lower()
-            file2chunks = filter_file2chunks(file2chunks, sample_files, attribute) # filter out file chunks that don't have the attribute 
-            file_attribute = get_file_attribute(attribute)
-            # save_path = f"{args.generative_index_path}/{run_string}_{file_attribute}_file2metadata.json"
-            # extractions: list[dict] = get_all_extractions(chunk, attr)  # [{extracted_data: , attr: , method_or_fun_name:, file_name: }]
-            # PREDICT: get extractions using the synthesized functions and the LM on the sample documents
-            all_extractions, function_dictionary, num_toks = get_all_extractions(
-                file2chunks,
-                file2contents,
-                sample_files,
-                attribute,
-                manifest_sessions,
-                profiler_args.EXTRACTION_MODELS,
-                profiler_args.GOLD_KEY,
-                args,
-                use_qa_model=profiler_args.use_qa_model,
-                overwrite_cache=profiler_args.overwrite_cache,
-            )
-            # type(all_extractions type) == {extraction_method: {file_names: -> list[data]}}
-            print(f'{type(all_extractions)=}')
-            for extraction_method, filename2extraction_data in all_extractions.items():
-                # extraction_method: str, filename2extraction_data: dict
-                for filename, extraction_data_list in filename2extraction_data.items():
-                    # filename: str, extraction_data_list: list
-                    for ex_data in extraction_data_list:
-                        # extraction_data: str
-                        extraction_row = {'extraction_data': ex_data, 'attribute': attribute, 'extraction_method': extraction_method, 'filename':filename}
-                        extraction_row.update({"1st_idx_in_chunk": chunk.find(extraction_data)})
-                        extractions.append(extraction_row)
-            # Sort extractec data by their order of appearance in the chunk.
-            extractions.sort(key=lambda row: raw[first_idx_in_chunk])
-        #
-    for row in extractions:
-        print(row)
+        chunks: list[str] = file2chunks[filename]
+        chunk: str
+        for chunk in chunks:
+            for attribute in attributes:
+                file2chunk = {filename: chunk}  # hack to trick API to only extract things from 1 chunk
+                # - extract data attributes from chunk (LLM direct & synthesized funcs)
+                print(f'{profiler_args.EXTRACTION_MODELS=}')
+                total_tokens_prompted: int
+                llm_direct_all_extractions_current_chunk: dict[str, dict[dict, list[str]]]  # {mdl_name, {filename, [extractions]}}, attr
+                llm_direct_all_extractions_current_chunk, total_tokens_prompted = get_extractions_directly_from_LLM_model(file2chunks, attribute, manifest_sessions, profiler_args.EXTRACTION_MODELS, sample_files, overwrite_cache)  # sample_files = all files for now, so LLM directly extracts everything (expensive)
+                # print(f'{all_extractions=}')
+                # print(f'{type(all_extractions)=}')
+                # get extractor functions
+                manifest_session = manifest_sessions[profiler_args.GOLD_KEY]
+                functions, function_promptsource, num_toks = get_functions(file2chunks, sample_files, attribute, manifest_session, overwrite_cache=overwrite_cache)
+                total_tokens_prompted += num_toks
+
+                func_all_extractions_current_chunk: dict[str, dict[dict, list[str]]]  # {extractor_fun_name, {filename, [extractions]}}, attr
+                files2contents = {filename: chunk}
+                func_all_extractions_current_chunk, total_tokens_prompted = get_extractions_functions(file2chunks, attribute, manifest_sessions, profiler_args.EXTRACTION_MODELS, sample_files, overwrite_cache, args) 
+                print()
+                # add idx where they appear in chunk
+                # sort according to this idx
+                # then append them as a row according to sorted idx order
+                # continue to the next chunk
+            pass
 
     # 
-    results_by_train_size = defaultdict(dict)
-    total_time_dict = defaultdict(dict) 
+    print('Done getting attributes in sorted order.')
+    print()
+    # results_by_train_size = defaultdict(dict)
+    # total_time_dict = defaultdict(dict) 
         
     # - Get sample/subset of files that will be used to learn/infer schema gen, fun gen & fun scoring.
     # sample_files = sample_scripts(
