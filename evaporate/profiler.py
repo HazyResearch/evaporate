@@ -407,6 +407,7 @@ def get_functions(
         for chunk in chunks:
             function_field = get_function_field_from_attribute(attribute)
             for prompt_num, prompt_template in enumerate(METADATA_GENERATION_FOR_FIELDS):
+                print(f'{prompt_template=}')
                 prompt = prompt_template.format(
                     attribute=attribute, 
                     function_field=function_field, 

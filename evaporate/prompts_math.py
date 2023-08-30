@@ -331,41 +331,6 @@ def get_theorem_field(text: str):
 
 ----
 
-Here is a file sample:
-
-\\begin{{Theorem}}{{1.11}}
-Suppose $S$ is an ordered set...
-\\end{{Theorem}}
-
-\\begin{{Proof}}
-Since $B$ is bounded below...
-\\end{{Proof}}
-
-from TexSoup import TexSoup
-
-def get_proof_field(text: str):
-    \"""
-    Function to extract the labeled proof.
-    \"""
-    soup = TexSoup(text)
-
-    # Find the theorem (if present)
-    theorem = soup.find('Theorem')
-    if theorem:
-        theorem_number = theorem.args[0]  # assuming the theorem number is the first argument
-    else:
-        return []
-
-    # Find the proof
-    proof = soup.find('Proof')
-    if not proof:
-        return []
-
-    labeled_proof = f"Proof {{theorem_number}}: {{proof.string}}"
-    return labeled_proof
-
-----
-
 Here is a sample of text:
 
 {{chunk:}}

@@ -11,7 +11,7 @@ get_structure in utils.py calls -> get_args - def in configs.py
 
 # -- Running run_profiler.py notes
 - data_lake: Name of the data lake dataset.  
-- do_end_to_end: Whether to perform OpenIE (True, learn schema) or ClosedIE (False, use predefined schema).
+- do_end_to_end: Whether to perform OpenIE (learn schema) or ClosedIE (use predefined schema).
 - num_attr_to_cascade: Number of attributes to extract. One set of extractor functions per attribute.
 - num_top_k_scripts: Number of extraction scripts to ensemble.
 - train_size: Number of sample files to use for training.
@@ -26,6 +26,7 @@ import sys
 import time
 import random
 import json
+import yaml
 import datetime
 from pathlib import Path
 from tqdm import tqdm
@@ -34,15 +35,34 @@ import argparse
 from collections import defaultdict, Counter
 
 from utils import get_structure, get_manifest_sessions, get_file_attribute
-from profiler_utils import chunk_file, sample_scripts, set_profiler_args
+from profiler_utils import chunk_file, sample_scripts, set_profiler_args, filter_file2chunks
 from schema_identification import identify_schema
-from profiler import run_profiler
+from profiler import run_profiler, get_all_extractions
 from evaluate_synthetic import main as evaluate_synthetic_main
 
 from pdb import set_trace as st
 
 random.seed(0)
+
 def get_data_lake_info(args, data_lake, DATA_DIR = "/data/evaporate"):
+    """
+    Gets file groups and metadata for a data lake.
+
+    Args:
+    args: Contains data directory and extractions file info.
+    data_lake: Name of the data lake.
+
+    Returns:
+    file_groups: List of file paths in the data lake.
+    extractions_file: Path to extractions file.
+    parser: Parser for the file type.
+    full_file_groups: Copy of file groups.
+
+    Gets the file groups by listing the data directory. Also returns
+    extractions file path and parser for the data lake format.
+
+    Provides input data and metadata to prepare the data lake for extraction.
+    """
     extractions_file = None
     
     # if data_lake == "fda_510ks":
@@ -65,7 +85,6 @@ def get_data_lake_info(args, data_lake, DATA_DIR = "/data/evaporate"):
 
 
 def chunk_files(file_group, parser, chunk_size, remove_tables, max_chunks_per_file, body_only):
-    print(f'Chunking files in func: {chunk_files=}')
     print(f'{parser=}')
     print(f'{chunk_size=}')
     file2chunks = {}
@@ -94,11 +113,28 @@ def chunk_files(file_group, parser, chunk_size, remove_tables, max_chunks_per_fi
 
 # chunking & preparing data
 def prepare_data(profiler_args, file_group, parser = "html"):
-    print(f'Preparing data in func: {prepare_data=}')
+    """
+    Prepares data lake documents by chunking and caching.
+
+    Args:
+    profiler_args: Arguments like chunk size and models.
+    file_group: List of file paths to prepare.
+    parser: Parser based on file type.
+
+    Returns:
+    file2chunks: Mapping of files to chunks.
+    file2contents: Mapping of files to contents.
+
+    Chunks documents based on chunk size. Caches chunks and contents
+    if not already cached. Returns mappings of files to chunks and
+    contents, to be used for extraction.
+
+    Prepares documents by chunking and caching for efficient extraction.
+    """
     print(f'{parser=}')
     data_lake = profiler_args.data_lake
+    print(f'{profiler_args.body_only=}')
     if profiler_args.body_only:
-        print(profiler_args.body_only)
         print('I think this does only the body an html based on profiler_args')
         body_only = profiler_args.body_only
         suffix = f"_bodyOnly{body_only}"
@@ -106,7 +142,6 @@ def prepare_data(profiler_args, file_group, parser = "html"):
         suffix = ""
 
     # prepare the datalake: chunk all files
-    manifest_sessions = get_manifest_sessions(profiler_args.MODELS, MODEL2URL=profiler_args.MODEL2URL, KEYS=profiler_args.KEYS)
     if os.path.exists(f".cache/{data_lake}_size{len(file_group)}_chunkSize{profiler_args.chunk_size}_{suffix}_file2chunks.pkl"):
         with open(f".cache/{data_lake}_size{len(file_group)}_chunkSize{profiler_args.chunk_size}_{suffix}_file2chunks.pkl", "rb") as f:
             file2chunks = pickle.load(f)
@@ -127,7 +162,7 @@ def prepare_data(profiler_args, file_group, parser = "html"):
         with open(f".cache/{data_lake}_size{len(file_group)}_chunkSize{profiler_args.chunk_size}_removeTables{profiler_args.remove_tables}{suffix}_file2contents.pkl", "wb") as f:
             pickle.dump(file2contents, f)
 
-    return file2chunks, file2contents, manifest_sessions
+    return file2chunks, file2contents 
 
 
 def get_run_string(
@@ -277,202 +312,165 @@ def run_experiment(profiler_args):
     # ---- Running run_experiment
     print(f'\n---- Running run_experiment...')
     do_end_to_end = profiler_args.do_end_to_end
-    print(f'{do_end_to_end=}. If True then OpenIE (learn schema) else ClosedIE (ground truth/human specified).')
     num_attr_to_cascade = profiler_args.num_attr_to_cascade
     train_size = profiler_args.train_size
-    data_lake = profiler_args.data_lake
+    data_lake = profiler_args.data_lake 
     chunk_size = 3000
-
-    print(f"Data lake")
-    today = datetime.datetime.today().strftime("%m%d%Y") 
-    print(f'{today=}')
+    print(f'{do_end_to_end=}. If True then OpenIE (learn schema) else ClosedIE (ground truth/human specified).')
+    print(f'{chunk_size=}')
     
-    # - Get args for data lake
+    # -- Get args for files in data lake to enable processing and chunking
     setattr(profiler_args, 'chunk_size', chunk_size)
-    # _, _, _, _, args = get_structure(data_lake)  # Get args for data lake from data lake config. In config.py calls get_args
     _, _, _, _, args = get_structure(data_lake, profiler_args=profiler_args, exist_ok=True)  # Get args for data lake from data lake config. In config.py calls get_args
     print(f'{args=}')
     file_groups, extractions_file, parser, full_file_groups = get_data_lake_info(args, data_lake)
-    file2chunks, file2contents, manifest_sessions = prepare_data(
-        profiler_args, full_file_groups, parser
+    print(f'{full_file_groups=}')
+    # Get sample/subset of files that will be used to learn/infer schema gen, fun gen & fun scoring.
+    sample_files = sample_scripts(file_groups,  train_size=profiler_args.train_size,) 
+    print(f'{sample_files=}')
+    today = datetime.datetime.today().strftime("today_M%mD%dY%Y") 
+    print(f'{today=}')
+    run_string = get_run_string(
+        data_lake, today, full_file_groups, profiler_args, 
+        do_end_to_end, train_size, 
+        profiler_args.use_dynamic_backoff,
+        profiler_args.EXTRACTION_MODELS,
     )
-    extraction_manifest_sessions = {
-        k: v for k, v in manifest_sessions.items() if k in profiler_args.EXTRACTION_MODELS
-    }
+    print(f'{run_string=}') 
+    # NOTE: you might have to reorder this if you have multiple files for 1 data lake (but likely 1 file per textbook so this is likely fine)
+    # NOTE: you might have to make chunking more robust later to not accidentally chunk/chop a theorem/definition in the middle.
+    print(f'{full_file_groups=}')
+    print(f'{parser=}')
+    file2chunks: dict = {}  # {filename: chunks}
+    file2chunks, file2contents = prepare_data(profiler_args, full_file_groups, parser)
+    manifest_sessions = get_manifest_sessions(profiler_args.MODELS, MODEL2URL=profiler_args.MODEL2URL, KEYS=profiler_args.KEYS)
+    # Get dict of {model_name: manifest_session}
+    extraction_manifest_sessions: dict = {mdl_name: manifest_session for mdl_name, manifest_session in manifest_sessions.items() if mdl_name in profiler_args.EXTRACTION_MODELS}
 
-    # todo: perhaps hard code some attributes, perhaps robust llm works?
-    if not do_end_to_end:  # closed ie
-        # load gold attributes from file AND contains gold_attributes.yaml 
+    # - Load gold attributes; do_end_to_end == OpenIE
+    if not do_end_to_end:  # closed ie (do_end_to_end <-> don't learn schema)
         if 'gold_attributes.yaml' in getattr(args, 'gold_attributes_file', ''):
-            import yaml
             data = yaml.safe_load(open(Path(args.gold_attributes_file).expanduser(), 'r'))
             gold_attributes = data['gold_attributes']
         else:
             gold_attributes = get_gold_metadata(args)  # original evaporate code
-        print(f'{gold_attributes=}')
+    assert not do_end_to_end, f"Only OpenIE is supported right now {do_end_to_end=}"
+    attributes = gold_attributes
+    print(f'{attributes=}')
 
+    # -- Get curriculum of mathematics from textbook in order (for now 1 textbook 1 file == 1 data lake)
+    assert len(file2chunks.keys()) == 1, f"If more than 1 file for 1 textbook, then you need to sort the files so curriculum for that textbook is respected {file2chunks=}"
+    assert set(sample_files) == set(file2chunks.keys()), f'Currently all files are used to learn schema & do processing.'
+    # TODO: figure out the sample_files role better (later) 
+    assert file2chunks is not None, f"Err: {file2chunks=}"
+    filename: str = list(file2chunks.keys())[0]
+    print(f'{filename=}')
+    chunks: list[str] = file2chunks[filename]
+    print(f'{len(chunks)=}')
+    print(f'{chunks=}')
+
+    # total_tokens_prompted = 0 update later
+    for filename, chunk in file2chunks.items():
+        print(f'{filename=}')
+        print(f'{chunk=}')
+        # -- Get all candidate extractd data wrt attributes in current chunk
+        extractions = []  # {extracted_data: , attr: , method_or_fun_name:, file_name:}
+        for attribute in attributes:
+            print(f'{attribute=}, {attribute.lower()=}')
+            attribute = attribute.lower()
+            file2chunks = filter_file2chunks(file2chunks, sample_files, attribute) # filter out file chunks that don't have the attribute 
+            file_attribute = get_file_attribute(attribute)
+            # save_path = f"{args.generative_index_path}/{run_string}_{file_attribute}_file2metadata.json"
+            # extractions: list[dict] = get_all_extractions(chunk, attr)  # [{extracted_data: , attr: , method_or_fun_name:, file_name: }]
+            # PREDICT: get extractions using the synthesized functions and the LM on the sample documents
+            all_extractions, function_dictionary, num_toks = get_all_extractions(
+                file2chunks,
+                file2contents,
+                sample_files,
+                attribute,
+                manifest_sessions,
+                profiler_args.EXTRACTION_MODELS,
+                profiler_args.GOLD_KEY,
+                args,
+                use_qa_model=profiler_args.use_qa_model,
+                overwrite_cache=profiler_args.overwrite_cache,
+            )
+            # type(all_extractions type) == {extraction_method: {file_names: -> list[data]}}
+            print(f'{type(all_extractions)=}')
+            for extraction_method, filename2extraction_data in all_extractions.items():
+                # extraction_method: str, filename2extraction_data: dict
+                for filename, extraction_data_list in filename2extraction_data.items():
+                    # filename: str, extraction_data_list: list
+                    for ex_data in extraction_data_list:
+                        # extraction_data: str
+                        extraction_row = {'extraction_data': ex_data, 'attribute': attribute, 'extraction_method': extraction_method, 'filename':filename}
+                        extraction_row.update({"1st_idx_in_chunk": chunk.find(extraction_data)})
+                        extractions.append(extraction_row)
+            # Sort extractec data by their order of appearance in the chunk.
+            extractions.sort(key=lambda row: raw[first_idx_in_chunk])
+        #
+    for row in extractions:
+        print(row)
+
+    # 
     results_by_train_size = defaultdict(dict)
     total_time_dict = defaultdict(dict) 
-    
-    # -- Run the schema identification
-    print(f"\n\n-- Run the schema identification")
-    if 1:
-        total_tokens_prompted = 0
-
-        print(f"\n\nData-lake: {data_lake}, Train size: {train_size}")
-        setattr(profiler_args, 'train_size', train_size)
-
-        run_string = get_run_string(
-            data_lake, today, full_file_groups, profiler_args, 
-            do_end_to_end, train_size, 
-            profiler_args.use_dynamic_backoff,
-            profiler_args.EXTRACTION_MODELS,
-        )
-        print(f'{run_string=}')
         
-        # - Get sample/subset of files that will be used to learn/infer schema gen, fun gen & fun scoring.
-        sample_files = sample_scripts(
-            file_groups,  
-            train_size=profiler_args.train_size,
-        )
-        print(f'{sample_files=}')
+    # - Get sample/subset of files that will be used to learn/infer schema gen, fun gen & fun scoring.
+    # sample_files = sample_scripts(
+    #     file_groups,  
+    #     train_size=profiler_args.train_size,
+    # )
+    # print(f'{sample_files=}')
 
-        # - Top-level Schema identification
-        print('\n\n- top-level schema identification')
-        print(f'{do_end_to_end=}')
-        if do_end_to_end:
-            print('\n\nIdentifying schema')
-            tokens_prompted = 0
-            t0 = time.time()
-            num_toks = identify_schema(
-                run_string,
-                args, 
-                file2chunks, 
-                file2contents, 
-                sample_files, 
-                extraction_manifest_sessions, 
-                data_lake, 
-                profiler_args
-            )
-            t1 = time.time()
-            total_time = t1-t0
-            tokens_prompted += num_toks
-            print(f"Total tokens prompted: {total_tokens_prompted=}")
-            total_time_dict[f'schemaId'][f'totalTime_trainSize{train_size}'] = int(total_time)
-
-            # results = evaluate_synthetic_main(
-            #     run_string,
-            #     args, 
-            #     profiler_args, 
-            #     data_lake, 
-            #     stage='schema_id'
-            # )
-            # results_by_train_size[train_size]['schema_id'] = results
-
-        # -- Run the extraction (profiling a document ~ extracting fields and values to summarize document)
-        print(f"\n\n-- Run the extraction")
-        if 1:
-            print(f'{do_end_to_end=}')
-            if do_end_to_end:
-                with open(f"{args.generative_index_path}/{run_string}_identified_schema.json") as f:
-                    print(f"Identified schema: {f.name=}")
-                    most_common_fields = json.load(f)
-                with open(f"{args.generative_index_path}/{run_string}_order_of_addition.json") as f:
-                    print(f"Order of addition (order to populate data frame): {f.name=}")
-                    order_of_addition = json.load(f)
-                    order = {item: (len(order_of_addition) - i) for i, item in enumerate(order_of_addition)}
-                ctr =  Counter(most_common_fields)
-                pred_metadata = sorted(
-                    ctr.most_common(num_attr_to_cascade), 
-                    key=lambda x: (x[1], order[x[0]]), 
-                    reverse=True
-                )
-                attributes = [item[0].lower() for item in pred_metadata]
-                print(f'Attributes: {attributes=}')
-            else:
-                attributes = gold_attributes
-            print(f'{attributes=}')
-
-            # - top-level information extraction
-            print('\n\n- top-level information extraction')
-            num_collected = 0
-            for i, attribute in enumerate(attributes):
-                print(f'{attribute=}')
-                print(f"Extracting {attribute} ({i+1} / {len(attributes)})")
-                t0 = time.time()
+    # # -- Run the extraction (profiling a document ~ extracting fields and values to summarize document)
+    # print(f'{attributes=}')
+    # # - top-level information extraction
+    # print('\n\n- top-level information extraction')
+    # num_collected = 0
+    # for i, attribute in enumerate(attributes):
+    #     print(f'{attribute=}')
+    #     print(f"Extracting {attribute} ({i+1} / {len(attributes)})")
+    #     t0 = time.time()
                 
-                # - "profiling" here means building a concise profile or summary of the key information in documents
-                num_toks, success = run_profiler(
-                    run_string,
-                    args, 
-                    file2chunks, 
-                    file2contents, 
-                    sample_files, 
-                    full_file_groups,
-                    extraction_manifest_sessions, 
-                    attribute, 
-                    profiler_args
-                ) 
-                print(f'current number of tokens prompted/used: {num_toks=}')
-                t1 = time.time()
-                total_time = t1-t0
-                total_tokens_prompted += num_toks 
-                print(f"Total tokens prompted: {total_tokens_prompted=}")
-                total_time_dict[f'extract'][f'totalTime_trainSize{train_size}'] = int(total_time)
-                if success:
-                    num_collected += 1
-                if num_collected >= num_attr_to_cascade:
-                    # break if we have collected enough attributes
-                    break
-            
-            # run closed ie eval
-            # results = evaluate_synthetic_main(
-            #     run_string, 
-            #     args, 
-            #     profiler_args, 
-            #     data_lake,
-            #     gold_attributes=gold_attributes, 
-            #     stage='extract'
-            # )
-            # results_by_train_size[train_size]['extract'] = results
+    #         # - "profiling" here means building a concise profile or summary of the key information in documents
+    #         num_toks, success = run_profiler(
+    #             run_string,
+    #             args, 
+    #             file2chunks, 
+    #             file2contents, 
+    #             sample_files, 
+    #             full_file_groups,
+    #             extraction_manifest_sessions, 
+    #             attribute, 
+    #             profiler_args
+    #         ) 
+    #         print(f'current number of tokens prompted/used: {num_toks=}')
+    #         t1 = time.time()
+    #         total_time = t1-t0
+    #         total_tokens_prompted += num_toks 
+    #         print(f"Total tokens prompted: {total_tokens_prompted=}")
+    #         total_time_dict[f'extract'][f'totalTime_trainSize{train_size}'] = int(total_time)
+    #         if success:
+    #             num_collected += 1
+    #         if num_collected >= num_attr_to_cascade:
+    #             # break if we have collected enough attributes
+    #             break
 
-            # # Determine whether to remove any attributes based on the extractions
-            # # Potentially can rerank the attributes based on the metric comparison to big model
-            # if do_end_to_end:
-            #     attributes_to_remove, mappings_names, attributes = determine_attributes_to_remove(
-            #         attributes, 
-            #         args, 
-            #         run_string, 
-            #         num_attr_to_cascade, 
-            #     )
-            #     # numextractions2results = measure_openie_results(
-            #     #     attributes, 
-            #     #     args, 
-            #     #     profiler_args,
-            #     #     run_string, 
-            #     #     gold_attributes, 
-            #     #     attributes_to_remove, 
-            #     #     full_file_groups, 
-            #     #     mappings_names
-            #     # )
-            #     if 'openie' not in results_by_train_size[train_size]:
-            #         results_by_train_size[train_size]['openie'] = {}
-            #     # results_by_train_size[train_size]['openie'] = numextractions2results
+    # results_by_train_size[train_size]['total_tokens_prompted'] = total_tokens_prompted
+    # results_by_train_size[train_size]['num_total_files'] = len(full_file_groups)
+    # results_by_train_size[train_size]['num_sample_files'] = len(sample_files)
+    # results_path = Path('~/data/evaporate/results_dumps').expanduser()
+    # if not os.path.exists(results_path):
+    #     os.mkdir(results_path)
+    #     print(results_path)
+    # print(run_string)
+    # with open(results_path / f"{run_string}_results_by_train_size.pkl", "wb") as f:
+    #     pickle.dump(results_by_train_size, f)
+    #     print(f.name)
+    #     print(f"Saved!")
 
-        results_by_train_size[train_size]['total_tokens_prompted'] = total_tokens_prompted
-        results_by_train_size[train_size]['num_total_files'] = len(full_file_groups)
-        results_by_train_size[train_size]['num_sample_files'] = len(sample_files)
-        results_path = Path('~/data/evaporate/results_dumps').expanduser()
-        if not os.path.exists(results_path):
-            os.mkdir(results_path)
-            print(results_path)
-        print(run_string)
-        with open(results_path / f"{run_string}_results_by_train_size.pkl", "wb") as f:
-            pickle.dump(results_by_train_size, f)
-            print(f.name)
-            print(f"Saved!")
-
-        print(f"Total tokens prompted: {total_tokens_prompted}")
+    # print(f"Total tokens prompted: {total_tokens_prompted}")
 
 
 def get_experiment_args():
@@ -601,16 +599,6 @@ def main():
     # }
     # load model dict from yaml file
     print(f'{model_dict=}')
-
-    # Example of how to use a locally-hosted FM
-    # model_dict = {
-    #     'MODELS': [" EleutherAI/gpt-j-6B"],
-    #     'EXTRACTION_MODELS': [" EleutherAI/gpt-j-6B"],
-    #     'GOLD_KEY': " EleutherAI/gpt-j-6B",
-    #     'MODEL2URL': {
-    #         " EleutherAI/gpt-j-6B": "http://127.0.0.1:5000"
-    #     },
-    # }
             
     for k, v in model_dict.items():
         print(f'model_dict: {k=} {v=}')
@@ -630,5 +618,4 @@ def main():
 
 
 if __name__ == "__main__":
-    # main()
-    main2()
+    main()
