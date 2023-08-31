@@ -37,7 +37,7 @@ from collections import defaultdict, Counter
 from utils import get_structure, get_manifest_sessions, get_file_attribute
 from profiler_utils import chunk_file, sample_scripts, set_profiler_args, filter_file2chunks
 from schema_identification import identify_schema
-from profiler import run_profiler, get_all_extractions, get_extractions_directly_from_LLM_model, get_extractions_using_llm_synthesized_functions, get_functions
+from profiler import run_profiler, get_all_extractions, get_extractions_directly_from_LLM_model, get_extractions_using_functions, get_functions
 from evaluate_synthetic import main as evaluate_synthetic_main
 
 from pdb import set_trace as st
@@ -340,6 +340,7 @@ def run_experiment(profiler_args):
     print(f'{run_string=}') 
     # NOTE: you might have to reorder this if you have multiple files for 1 data lake (but likely 1 file per textbook so this is likely fine)
     # NOTE: you might have to make chunking more robust later to not accidentally chunk/chop a theorem/definition in the middle.
+    # -- Chunk files in data lake
     print(f'{full_file_groups=}')
     print(f'{parser=}')
     file2chunks: dict[str, list[str]] = {}  # {filename: chunks}
@@ -372,30 +373,48 @@ def run_experiment(profiler_args):
     # print(f'{chunks=}')
     # contents: str = file2contents[filename]
     # print(f'{contents=}')
+    
+    # -- When the data lake is really large and has multiple files, evaporate would have generated extraction functions for each attribute using a subset of the files and using a subset of the chunks in each file.
+    # print(f'{sample_files=} (Only that subset of files will be used to create extraction functions)')
+    # function_dictionary: dict[str, dict[str, dict[str, str]]] = defaultdict(lambda: defaultdict(dict))  # {attr, {fun_key, {"function", fn_str}}
+    # model: str
+    # for model in profiler_args.MODELS:
+    #     # manifest_session = manifest_sessions[profiler_args.GOLD_KEY]  # TODO: perhaps will all manifest sessions, right now I only do 1 so not to worry
+    #     manifest_session = manifest_sessions[model]  # TODO: perhaps will all manifest sessions, right now I only do 1 so not to worry
+    #     for attribute in attributes:
+    #         # get_functions already subsets based on sample_files, so no need to only loop through file in sample_files here (odd evaporate api, bad code imho), note file2chunks already created before this
+    #         functions, function_promptsource, num_toks = get_functions(file2current_chunk, sample_files, attribute, manifest_session, overwrite_cache=overwrite_cache) 
+    #         function_dictionary[attribute][fn_key]['function'] = fn  
+    #         function_dictionary[attribute][fn_key]['promptsource'] = function_promptsource[fn_key]
+    # # post condition guarantee: function_dictionary has all the functions for all the attributes (by using the subset of files in sample_files and using all sample chunks in file)
 
     # -- Loop through every file in textbook (=data lake) and every chunk in it's txt file and extract attributes in right order
     total_tokens_prompted: int = 0
     print(f'processing files in {data_lake=} (data lake ~ textbook)')
     filename: str
-    for filename in file2chunks.keys():
+    for filename in file2chunks.keys():  # file2chunks files have already been chunked
         print(f'{filename=}')
         chunks: list[str] = file2chunks[filename]
+        # - Loop through every chunk in file
         chunk: str
         for chunk in chunks:
-            file2current_chunk = {filename: chunk}  # hack to trick API to only extract things from 1 chunk
+            attribute: str
             for attribute in attributes:
-                # - extract data attributes from chunk (LLM direct & synthesized funcs)
+                file2current_chunk = {filename: chunk}  # hack to trick evaporate API to only extract things from 1 chunk
+                # - Extract data attributes from chunk (LLM direct)
                 print(f'{profiler_args.EXTRACTION_MODELS=}')
-                llm_direct_all_extractions_current_chunk: dict[str, dict[dict, list[str]]]  # {mdl_name, {filename, [extractions]}}, attr
+                llm_direct_all_extractions_current_chunk: dict[str, dict[str, list[str]]]  # {mdl_name, {filename, [extractions]}}, attr
                 llm_direct_all_extractions_current_chunk, num_toks = get_extractions_directly_from_LLM_model(file2current_chunk, attribute, manifest_sessions, profiler_args.EXTRACTION_MODELS, sample_files, overwrite_cache)  # sample_files = all files for now, so LLM directly extracts everything (expensive)
                 total_tokens_prompted += num_toks
-                # - extract data attributes from current chunk with (synthesized funcs)
+                # - Extract data attributes from current chunk with (synthesized funcs)
                 # get extractor functions
-                manifest_session = manifest_sessions[profiler_args.GOLD_KEY]
-                functions, function_promptsource, num_toks = get_functions(file2current_chunk, sample_files, attribute, manifest_session, overwrite_cache=overwrite_cache)
+                manifest_session = manifest_sessions[profiler_args.GOLD_KEY]  # TODO: perhaps will all manifest sessions, right now I only do 1 so not to worry
+                functions, function_promptsource, num_toks = get_functions(file2current_chunk, sample_files, attribute, manifest_session, overwrite_cache=overwrite_cache)  # re generating the functions is fine since we only have a single file anyway 
                 total_tokens_prompted += num_toks
                 func_all_extractions_current_chunk: dict[str, dict[dict, list[str]]]  # {extractor_fun_name, {filename, [extractions]}}, attr
-                func_all_extractions_current_chunk = get_extractions_using_llm_synthesized_functions(functions, file2current_chunk, attribute, manifest_sessions, sample_files, args, overwrite_cache) 
+                func_all_extractions_current_chunk, function_dictionary = get_extractions_using_functions(functions, file2current_chunk, attribute, manifest_sessions, sample_files, args, overwrite_cache=overwrite_cache, function_promptsource=function_promptsource) 
+                # function_dictionary optional, but maybe useful
+                # real important here is llm_direct_all_extractions_current_chunk and func_all_extractions_current_chunk and func_all_extractions_current_chunk
                 print()
                 # add idx where they appear in chunk
                 print()

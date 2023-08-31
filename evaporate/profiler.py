@@ -269,14 +269,47 @@ def apply_final_ensemble(
 
 
 def apply_final_profiling_functions(
-    files2contents,
-    sample_files,
-    fn,
-    attribute,
+    files2contents: dict[str, str], # {filename: content} but can also be file2current_chunk = {filename: chunk}  # hack to trick API to only extract things from 1 chunk
+    sample_files: list[str],  # e.g., ['/lfs/ampere1/0/brand...b74ebg.tex'] if textbook is a single file
+    fn: str,  # function as a string e.g., def get_definition(text:str ... etc.
+    attribute: str,  # e.g., definition, example, theorem, proof, etc.
     data_lake='',
     function_cache=False,
     args = None,
     ):
+    """
+    Applies the given extraction function fn to each file in sample_files 
+    to extract the specified attribute.
+
+    Args:
+        files2contents (dict): Mapping of filenames to file contents
+        sample_files (list[str]): List of sample file names
+        fn (str): Extraction function code 
+        attribute (str): Attribute to extract
+        data_lake (str): Optional name of data lake
+        function_cache (bool): Whether to cache extraction results
+        args (Namespace): Optional namespace with args like cache_dir
+
+    Returns:
+        all_extractions (dict): Extractions indexed by file name
+        num_function_errors (int): Number of errors executing functions
+
+    The function handles caching extractions if function_cache is True.
+
+    Extractions are returned in all_extractions structured as:
+    
+    {
+        "file1": ["extracted_val1"],
+        "file2": ["extracted_val2"],
+        ...
+    }
+
+    The key points are:
+        It applies the extraction function fn to each file to get attribute values
+        Caches extractions if function_cache enabled
+        Returns extractions indexed by file name in all_extractions
+        Also returns number of errors executing functions
+    """
     print(f'--> {args=}')
     function_cache = True  # hardcoded TODO
     print(f'{function_cache=} (hardcoded)') 
@@ -387,13 +420,55 @@ def get_function_field_from_attribute(attribute):
 
 
 def get_functions(
-    file2chunks: dict[str, list[str]],  # {filename: chunk} e.g, chunk = [chnnk1]
-    sample_files,
+    file2chunks: dict[str, list[str]],  # {filename: chunks} e.g, chunk = [chnnk1]
+    sample_files: list[str],  # for now my textbooks only have 1 file, so we use all files to generate extraction functions for each attribute
     # sample_files: list[str],  # in this context it does limit which files from data lake/textbook LLM uses to synthesize extraction functions functions
-    attribute,
-    manifest_session,
+    attribute: str,
+    manifest_session,  # single LLM session from manifest_sessions: dict[str, Session]
     overwrite_cache=False,
-):
+) -> tuple[dict[str, str], dict[str, str], int]:
+    """
+    Generates candidate extraction functions for the given attribute 
+    using the provided manifest session and sample files. 
+    It creates a function for each chunk and prompt template for the given attribute.
+    Since the functions are synthesized with an LLM, each chunk gives a function from the LLM with
+    fixed context length (full file to generate extractor function for attribute dont fit).
+
+        ex_fn_att: str = LLM(chunk, prompt_template, attribute)
+
+    Synthesizes multiple candidate functions by prompting the LLM
+    with different chunks and prompt templates.
+    Creates different extraction functions for depedning on the chunk and prompt template.
+    It uses all chunks and gives a bunch of extraction functions based on each chunk (and prompt template)
+
+    Args:
+        file2chunks (dict[str, list[str]]): Filenames to chunks mapping
+        sample_files (list[str]): Sample filenames
+        attribute (str): Attribute to extract
+        manifest_session (Session): Manifest session
+        overwrite_cache (bool): Whether to overwrite cache
+    
+    Returns:
+        functions (dict): Generated functions dict
+        function_promptsource (dict): Maps function to prompt
+        total_tokens_prompted (int): Tokens prompted
+
+    Functions are returned in functions dict structured as:
+
+        {
+            "function_1": "def function1...", 
+            "function_2": "def function2...",
+        }
+
+    This function gets file2chunks because it needs to pass example chunks to the LLM to synthesize the extraction functions.
+
+    The key points on when functions are synthesized:
+
+        Functions are synthesized at the start for each attribute
+        All candidate functions for an attribute are synthesized before extracting values
+        The functions are then re-used for all files when extracting that attribute
+        So for a new data lake, Evaporate would recommend synthesizing functions once at the start using a sample of files/chunks. The same functions can then be applied to all files for efficiency.
+    """
     total_tokens_prompted = 0
     functions = {}  # {function_{fn_num}} : script
     function_promptsource = {}
@@ -489,16 +564,78 @@ def deduplicate_extractions(extractions):
 
 
 def get_model_extractions(
-    file2chunks, 
-    sample_files, 
-    attribute, 
-    manifest_session,
-    model_name,
+    file2chunks: dict[str, list[str]],  # {filename: chunks}
+    sample_files: list[str], # note all files since our data lake is 1 file
+    attribute: str,  # e.g., definition, example, theorem, proof, etc. 
+    manifest_session,  # API session for model
+    model_name: str,  # e.g., "gpt4" "gpt3.5-turbo"  
     overwrite_cache=False,
     collecting_preds=False,
 ):
-    """ Extract value for attribute given using LM. """
+    """
+    Extracts values for the given attribute from sample_files
+    using the LLM model in the provided manifest session.
 
+    Handles prompting the model with each chunk in file2chunks
+    and accumulating the extractions.
+
+    Args:
+        file2chunks (dict[str, list[str]]): File paths to chunks
+        sample_files (list[str]): Sample file names
+        attribute (str): Attribute to extract
+        manifest_session (Session): Manifest session 
+        model_name (str): Name of LLM model
+        overwrite_cache (bool): Whether to overwrite cache
+        collecting_preds (bool): Whether to collect more preds
+
+    Returns:
+        file2results (dict): Extractions indexed by file name
+        total_tokens_prompted (int): Total tokens prompted
+        errored_out (bool): Whether model errored out
+
+    Extractions are returned in file2results structured as:
+
+        {
+            "file1": ["extracted_val1"],
+            "file2": ["extracted_val2"],
+        }
+
+    The key reason file2chunks is used here rather than file contents is because 
+    the prompts are applied on a per-chunk basis.
+    E.g., exctracting all attributes for the entire file isn't possible since the LLM
+    has a fixed input context length, so every chunk has to be fed to LLM to make sure
+    all attributes are extracted (assuming you want to extract all attributes using the
+    LLM, which is expensive. In textbook case with a single file this is likely fine 
+    if we have a good prompt!). 
+    So we need the chunks to loop through (all chunks if you want all attributes to be 
+    extracted correctly with the LLM).
+
+    In contrast, apply_final_profiling_functions operates on the full file contents 
+    because it is applying the synthesized functions which are designed to parse 
+    the entire content.
+    The synthesized functions were built with a subset of the files but all the chunks
+    in the selected files. A function is built for each chunk and prompt template (for
+    the sample_files selected).
+
+    And get_functions uses file2chunks because it needs a chunk to include as an example in the function synthesis prompt.
+
+    So in summary:
+
+        file2chunks used when operating on individual chunks
+        file contents used when operating on full file
+        Different granularity depending on the task
+
+    Main concepts:
+        - LLMs have limited input, so chunks have to be given if you want to generate
+            - generate the attribute extracted form chunk (llm acts as extractor)
+            - generate the extractor function that can be re-used "cheaply" on the entire document
+                - but the extractor function would be generate per prompt synthesize template per chunk (for all chunks for a subset of files given in sample_files)
+    
+    For your problem, it might be fine to only use LLM because:
+    - we are evaluating on a single textbook with a single file
+    (but it is possible to generate functions for subset of files...all files all chunks for that file)
+    (possible to do both LLM extraction and function extraction in my case)
+    """
     num_errors = 0
     total_prompts = 0
     total_tokens_prompted = 0
@@ -864,7 +1001,7 @@ def run_profiler(run_string, args, file2chunks, file2contents, sample_files, gro
 def get_extractions_directly_from_LLM_model(
                                 file2chunks: dict[str, list[str]], # for 1 chunk do {filename: [chunk1]}
                                 attribute: str, # e.g., definition, example, theorem, proof, etc.
-                                manifest_sessions,  # dict[str, Session]
+                                manifest_sessions: dict,  # dict[str, Session]
                                 MODELS: list[str],  # e.g., ['gpt-3.5-turbo] 
                                 sample_files: list[str],  # given code I read, it seems to restrict which chunks to look at from file2chunks, thus semantically it limits which chunks we extract data by using filename 
                                 overwrite_cache: bool = False,
@@ -872,7 +1009,38 @@ def get_extractions_directly_from_LLM_model(
     """
     For current attribute, extract data from chunks using LLM models directly.
     Set file2chunks = {filename -> [chunk]} to process a single chunk. 
+    Since the LLM is a fixed context length, it can only extract data from a single chunk at a time,
+    so all chunks for the current file in question have to be given for the LLM to be 
+    able to extract correctly given the extraction prompt.
+    This is basically forcing the LLM to act as an extractor function (~parser) by 
+    conditioning it with a prompt that is designed to extract the attribute from the chunk.
 
+    Extract relevant attributes from text chunks using direct prompts to LLM models without relying on synthesized extraction functions.
+    Given the versatility of LLMs, this function leverages their capability to extract information directly from prompts. 
+    Chunks are presented to the LLM with a conditioned extraction prompt designed to retrieve the desired attribute. 
+    Chunks have to be used since LLMs have a fixed context length and can only extract information from a single chunk at a time, 
+    but to extract all attributes from entire doc feed all chunks one at a time.
+    This mimics a parser's behavior but utilizes the LLM's vast knowledge and flexibility to follow instructions in a prompt with few shot example.
+
+
+    sample_files = all files to extract all attribute data from all files. 
+    You can also limit the chunks list[str] in file2chunks {str, list[str]} if you want a susbet of the file. 
+
+    Parameters:
+        file2chunks (dict): A mapping from filenames to their corresponding text chunks. For processing only one chunk, format it as {filename: [chunk]}.
+        attribute (str): The specific type of extraction required, such as "definition" or "theorem".
+        manifest_sessions (dict): Contains session-related data for each manifest, facilitating interactions with the LLM.
+        MODELS (list): List of LLM model names to be utilized for extraction, such as ['gpt-3.5-turbo'].
+        sample_files (list): Provides a means to limit which chunks from 'file2chunks' are to be examined based on their filenames.
+        overwrite_cache (bool, optional): If set to True, it will overwrite any existing cached results. Defaults to False.
+
+    Returns:
+        tuple:
+            - all_extractions (dict): A nested dictionary containing the extracted information, organized first by model name, then by filename.
+            - total_tokens_prompted (int): Total number of tokens processed across all models.
+
+    Note:
+        This function embodies the direct application of Evaporate's extraction capabilities, bypassing the code synthesis techniques and extracting data straight from the models using conditioned prompts.
     """
     total_tokens_prompted = 0
     #-- Get extractions from LLM models directly
@@ -899,30 +1067,52 @@ def get_extractions_directly_from_LLM_model(
     # print(f'{all_extractions=}') 
     return all_extractions, total_tokens_prompted
 
-def get_extractions_using_llm_synthesized_functions(
-                                                functions: dict[str, str], 
-                                                file2chunks: dict[str, list[str]], # for 1 chunk do {filename: [chunk1]}
-                                                attribute: str, # e.g., definition, example, theorem, proof, etc.
-                                                manifest_sessions,  # dict[str, Session]
-                                                sample_files: list[str],  # in this context it does limit which files from data labe/textbook LLM uses to synthesize extraction functions functions
-                                                args,  # for now needed to set the cache directory path for function caching 
-                                                overwrite_cache: bool = False,
+def get_extractions_using_functions(
+                                    files2contents: dict[str, str], # {filename: content} but can also be file2current_chunk = {filename: chunk}  # hack to trick API to only extract things from 1 chunk
+                                    attribute: str, # e.g., definition, example, theorem, proof, etc.
+                                    manifest_sessions: dict,  # dict[str, Session]
+                                    sample_files: list[str],  # in this context it does limit which files from data labe/textbook LLM uses to synthesize extraction functions functions
+                                    args,  # for now needed to set the cache directory path for function caching 
+                                    overwrite_cache: bool = False,
+                                    function_promptsource: dict = defaultdict(str),  # this is actually optional but useful so that code still looks like evaporate
     ):
     """ 
-    Get extractions from current chunk (file2chunks) using the LLM extraction functions. 
+    Get extractions from current file to content (or subset but needs to be a single string) using the LLM extraction functions. 
+    Extract relevant information from provided text contents using synthesized functions from LLM.
+
+    Parameters:
+        files2contents (dict): Mapping from filenames to their content or a specific chunk of content. If extracting from a specific chunk, the content should represent that chunk.
+        attribute (str): Desired extraction type (e.g., definition, theorem).
+        manifest_sessions (dict): Sessions associated with each manifest. Presumably used for LLM communication.
+        sample_files (list): Specifies the subset of files from the data lake/textbook to be used for function synthesis.
+        args: Miscellaneous arguments, notably used for cache directory setup.
+        overwrite_cache (bool, optional): If True, overwrites existing cached functions. Defaults to False.
+        function_promptsource (dict, optional): Mapping from function names to their source prompts. Provides traceability.
+
+    Returns:
+        tuple: 
+            - all_extractions (dict): Contains the extracted information, organized by function name, then by filename.
+            - function_dictionary (dict): Provides additional metadata about the functions used for extraction.
+
+    Notes:
+        The function assumes the presence of another function 'apply_final_profiling_functions' which is not defined in this context. The exact behavior and requirements of this function should be documented separately.
     """
     # -- Get extractions from synthesized functions
-    function_dictionary = defaultdict(dict)
+    all_extractions: dict[str, dict[str, list[str]]] = defaultdict(dict)  #  # {extractor_fun_name, {filename, [extractions]}}, attr
+    function_dictionary: dict[str, dict[str, str]] = defaultdict(dict)  # {fun_key, {"function", fn_str}
+    fn_key: str  # e.g., "function_6211"
+    fn: str # function as a string e.g., def get_definition(text:str ... etc.
     for fn_key, fn in functions.items():
         print(f'\n{args=}')
-        # print(f'{type(fn)=}')  # calllable?
+        # remember extractor functions can take much larger file, not necessrily only chunk
         all_extractions[fn_key], num_function_errors = apply_final_profiling_functions(
-            file2chunks, 
+            files2contents, 
             sample_files,
             fn,
             attribute,
             args=args 
         )
-        function_dictionary[fn_key]['function'] = fn
-        # function_dictionary[fn_key]['promptsource'] = function_promptsource[fn_key]
+        # code bellow could be removed but decided to leave it to 
+        function_dictionary[fn_key]['function'] = fn  
+        function_dictionary[fn_key]['promptsource'] = function_promptsource[fn_key]
     return all_extractions, function_dictionary
