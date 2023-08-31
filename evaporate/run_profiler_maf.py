@@ -389,6 +389,7 @@ def run_experiment(profiler_args):
     # # post condition guarantee: function_dictionary has all the functions for all the attributes (by using the subset of files in sample_files and using all sample chunks in file)
 
     # -- Loop through every file in textbook (=data lake) and every chunk in it's txt file and extract attributes in right order
+    # GOAL: extract ALL attr data in the **right order** wrt textbook files (single file for now) and thus all chunks in question for the textbook [file -> str or file -> [all chunks]] 1 file per textbook/data lake for now.
     total_tokens_prompted: int = 0
     print(f'processing files in {data_lake=} (data lake ~ textbook)')
     filename: str
