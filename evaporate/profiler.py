@@ -464,7 +464,7 @@ def get_functions(
         overwrite_cache (bool): Whether to overwrite cache
     
     Returns:
-        functions (dict): Generated functions dict
+        functions (dict): Generated functions dict, {function_{fn_num}} : script
         function_promptsource (dict): Maps function to prompt
         total_tokens_prompted (int): Tokens prompted
 
@@ -494,7 +494,7 @@ def get_functions(
     ):
         # print(f'{attribute=}')
         chunks = file2chunks[file]
-        for chunk in chunks:
+        for ii, chunk in enumerate(chunks):
             function_field = get_function_field_from_attribute(attribute)
             for prompt_num, prompt_template in enumerate(METADATA_GENERATION_FOR_FIELDS):
                 # print(f'{prompt_template=}')
@@ -507,10 +507,14 @@ def get_functions(
                     script, num_toks = apply_prompt(
                         Step(prompt), 
                         max_toks=500, 
+                        # max_toks=2000, 
+                        # max_toks=4097, 
                         manifest=manifest_session,
                         overwrite_cache=overwrite_cache
                     )
                     total_tokens_prompted += num_toks
+                    print(f'{ii=} {prompt_num=}')
+                    # time.sleep(0.1)
                 except Exception as e:
                     print(e)
                     print(f"Failed to generate function for {attribute}")
@@ -1083,6 +1087,7 @@ def get_extractions_directly_from_LLM_model(
     return all_extractions, total_tokens_prompted
 
 def get_extractions_using_functions(
+                                    functions: dict[str, str], # {fn_key: fn}
                                     files2contents: dict[str, str], # {filename: content} but can also be file2current_chunk = {filename: chunk}  # hack to trick API to only extract things from 1 chunk
                                     attribute: str, # e.g., definition, example, theorem, proof, etc.
                                     manifest_sessions: dict,  # dict[str, Session]
@@ -1113,8 +1118,8 @@ def get_extractions_using_functions(
         The function assumes the presence of another function 'apply_final_profiling_functions' which is not defined in this context. The exact behavior and requirements of this function should be documented separately.
     """
     # -- Get extractions from synthesized functions
-    all_extractions: dict[str, dict[str, list[str]]] = defaultdict(dict)  #  # {extractor_fun_name, {filename, [extractions]}}, attr
-    function_dictionary: dict[str, dict[str, str]] = defaultdict(dict)  # {fun_key, {"function", fn_str}
+    all_extractions: dict[str, dict[str, list[str]]] = defaultdict(dict)  #  {fn_key, {filename, [extractions]}}
+    function_dictionary: dict[str, dict[str, str]] = defaultdict(dict)  # {fn_key, {"function", fn_str}
     fn_key: str  # e.g., "function_6211"
     fn: str # function as a string e.g., def get_definition(text:str ... etc.
     for fn_key, fn in functions.items():

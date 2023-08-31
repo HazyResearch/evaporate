@@ -360,6 +360,7 @@ def run_experiment(profiler_args):
     assert not do_end_to_end, f"Only OpenIE is supported right now {do_end_to_end=}"
     attributes = gold_attributes
     print(f'{attributes=}')
+    print(f'{len(attributes)=}')
 
     # -- Get curriculum of mathematics from textbook in order (for now 1 textbook 1 file == 1 data lake)
     assert len(file2chunks.keys()) == 1, f"If more than 1 file for 1 textbook, then you need to sort the files so curriculum for that textbook is respected {file2chunks=}"
@@ -376,26 +377,32 @@ def run_experiment(profiler_args):
     
     # -- When the data lake is really large and has multiple files, evaporate would have generated extraction functions for each attribute using a subset of the files and using a subset of the chunks in each file.
     print(f'{sample_files=} (Only that subset of files will be used to create extraction functions)')
+    total_requests: int = 0
     total_tokens_prompted: int = 0
-    function_dictionary: dict[str, dict[str, dict[str, str]]] = defaultdict(lambda: defaultdict(dict))  # {attr, {fun_key, {"function", fn_str}}
+    function_dictionary: dict[str, dict[str, dict[str, str]]] = defaultdict(lambda: defaultdict(dict))  # {attr, {"function", {fn_key, fn}}
     model: str
     for model in profiler_args.MODELS:
         # manifest_session = manifest_sessions[profiler_args.GOLD_KEY]  # TODO: perhaps will all manifest sessions, right now I only do 1 so not to worry
         manifest_session = manifest_sessions[model]  # TODO: perhaps will all manifest sessions, right now I only do 1 so not to worry
-        for attribute in attributes:
+        for idx_attr, attribute in enumerate(attributes):
+            print(f'{attribute=} ({idx_attr+1} / {len(attributes)})')
             # get_functions already subsets based on sample_files, so no need to only loop through file in sample_files here (odd evaporate api, bad code imho), note file2chunks already created before this
-            functions, function_promptsource, num_toks = get_functions(file2current_chunk, sample_files, attribute, manifest_session, overwrite_cache=overwrite_cache) 
+            functions, function_promptsource, num_toks = get_functions(file2chunks, sample_files, attribute, manifest_session, overwrite_cache=overwrite_cache) 
             # collect fns for each attr
             for fn_key, fn in functions.items():
-                function_dictionary[attribute][fn_key]['function'] = fn  
-                function_dictionary[attribute][fn_key]['promptsource'] = function_promptsource[fn_key]
+                function_dictionary[attribute]['function'][fn_key] = fn  
+                function_dictionary[attribute]['promptsource'][fn_key] = function_promptsource
             total_tokens_prompted += num_toks
+            print(f'{total_tokens_prompted=}')
+            total_requests += len(chunks) * 2 # 2 prompts per chunk, we have len(chunks) 
+            print(f'{total_requests=}')
+            # time.sleep(0.5)
     # post condition guarantee: function_dictionary has all the functions for all the attributes (by using the subset of files in sample_files and using all sample chunks in file)
 
     # -- Loop through every file in textbook (=data lake) and every chunk in it's txt file and extract attributes in right order
     # GOAL: extract ALL attr data in the **right order** wrt textbook files (single file for now) and thus all chunks in question for the textbook [file -> str or file -> [all chunks]] 1 file per textbook/data lake for now.
-    total_tokens_prompted: int = 0
     print(f'processing files in {data_lake=} (data lake ~ textbook)')
+    all_extractions: dict = defaultdict(dict)  # {attr, {ex_method, {filaname, [extractions]}}} = {attr, {mdl_name, {filename, [extractions]} + {fn_key, {filename, [extractions]} }
     filename: str
     for filename in file2chunks.keys():  # file2chunks files have already been chunked
         print(f'{filename=}')
@@ -413,13 +420,12 @@ def run_experiment(profiler_args):
                 total_tokens_prompted += num_toks
                 # - Extract data attributes from current chunk with (synthesized funcs)
                 # get extractor functions
-                manifest_session = manifest_sessions[profiler_args.GOLD_KEY]  # TODO: perhaps will all manifest sessions, right now I only do 1 so not to worry
-                functions, function_promptsource, num_toks = get_functions(file2current_chunk, sample_files, attribute, manifest_session, overwrite_cache=overwrite_cache)  # re generating the functions is fine since we only have a single file anyway 
-                total_tokens_prompted += num_toks
-                func_all_extractions_current_chunk: dict[str, dict[dict, list[str]]]  # {extractor_fun_name, {filename, [extractions]}}, attr
+                functions = function_dictionary[attribute]['function']  # {fn_key, fn_str}
+                func_all_extractions_current_chunk: dict[str, dict[dict, list[str]]]  # {fn_key, {filename, [extractions]}}
                 func_all_extractions_current_chunk, function_dictionary = get_extractions_using_functions(functions, file2current_chunk, attribute, manifest_sessions, sample_files, args, overwrite_cache=overwrite_cache, function_promptsource=function_promptsource) 
-                # function_dictionary optional, but maybe useful
-                # real important here is llm_direct_all_extractions_current_chunk and func_all_extractions_current_chunk and func_all_extractions_current_chunk
+                # - All extractions
+                # combine dictionaries of extractions
+                all_extractions[attribute] = dict(**llm_direct_all_extractions_current_chunk, **all_extractions)
                 print()
                 # add idx where they appear in chunk
                 print()
