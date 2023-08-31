@@ -387,26 +387,27 @@ def get_function_field_from_attribute(attribute):
 
 
 def get_functions(
-    file2chunks,
+    file2chunks: dict[str, list[str]],  # {filename: chunk} e.g, chunk = [chnnk1]
     sample_files,
+    # sample_files: list[str],  # in this context it does limit which files from data lake/textbook LLM uses to synthesize extraction functions functions
     attribute,
     manifest_session,
     overwrite_cache=False,
 ):
     total_tokens_prompted = 0
-    functions = {}
+    functions = {}  # {function_{fn_num}} : script
     function_promptsource = {}
     for i, (file) in tqdm(
         enumerate(sample_files),
         total=len(sample_files),
         desc=f"Generating functions for attribute {attribute}",
     ):
-        print(f'{attribute=}')
+        # print(f'{attribute=}')
         chunks = file2chunks[file]
         for chunk in chunks:
             function_field = get_function_field_from_attribute(attribute)
             for prompt_num, prompt_template in enumerate(METADATA_GENERATION_FOR_FIELDS):
-                print(f'{prompt_template=}')
+                # print(f'{prompt_template=}')
                 prompt = prompt_template.format(
                     attribute=attribute, 
                     function_field=function_field, 
@@ -867,15 +868,15 @@ def get_extractions_directly_from_LLM_model(
                                 MODELS: list[str],  # e.g., ['gpt-3.5-turbo] 
                                 sample_files: list[str],  # given code I read, it seems to restrict which chunks to look at from file2chunks, thus semantically it limits which chunks we extract data by using filename 
                                 overwrite_cache: bool = False,
-                                ) -> tuple[dict[str, dict[dict, list[str]]], int]]:
+                                ) -> tuple[dict[str, dict[dict, list[str]]], int]:
     """
     For current attribute, extract data from chunks using LLM models directly.
     Set file2chunks = {filename -> [chunk]} to process a single chunk. 
 
     """
     total_tokens_prompted = 0
-    all_extractions: dict[str, dict[dict, list[str]]]  # {mdl_name, {filename, [extractions]}}, attr
     #-- Get extractions from LLM models directly
+    all_extractions: dict[str, dict[dict, list[str]]] = {} # {mdl_name, {filename, [extractions]}}, attr
     for model in MODELS:
         manifest_session = manifest_sessions[model]
         # Extract values for attribute given using LM from file chunks.
@@ -898,57 +899,30 @@ def get_extractions_directly_from_LLM_model(
     # print(f'{all_extractions=}') 
     return all_extractions, total_tokens_prompted
 
- def get_extractions_from_synthesized_functions(
+def get_extractions_using_llm_synthesized_functions(
+                                                functions: dict[str, str], 
                                                 file2chunks: dict[str, list[str]], # for 1 chunk do {filename: [chunk1]}
                                                 attribute: str, # e.g., definition, example, theorem, proof, etc.
                                                 manifest_sessions,  # dict[str, Session]
-                                                MODELS: list[str],  # e.g., ['gpt-3.5-turbo'] 
-                                                GOLD_KEY: str , # e.g. gpt-3.5-turbo, profiler_args.GOLD_KEY
                                                 sample_files: list[str],  # in this context it does limit which files from data labe/textbook LLM uses to synthesize extraction functions functions
+                                                args,  # for now needed to set the cache directory path for function caching 
                                                 overwrite_cache: bool = False,
     ):
     """ 
+    Get extractions from current chunk (file2chunks) using the LLM extraction functions. 
     """
-    # -- Generate extraction functions using LLM model
-    manifest_session = manifest_sessions[GOLD_KEY]
-    functions, function_promptsource, num_toks = get_functions(
-        file2chunks, 
-        sample_files, 
-        attribute, 
-        manifest_session,
-        overwrite_cache=overwrite_cache,
-    )
-    print(f"Number of functions: {len(functions)}")
-    total_tokens_prompted += num_toks
-
     # -- Get extractions from synthesized functions
     function_dictionary = defaultdict(dict)
     for fn_key, fn in functions.items():
         print(f'\n{args=}')
+        # print(f'{type(fn)=}')  # calllable?
         all_extractions[fn_key], num_function_errors = apply_final_profiling_functions(
-            file2contents 
+            file2chunks, 
             sample_files,
             fn,
             attribute,
             args=args 
         )
         function_dictionary[fn_key]['function'] = fn
-        function_dictionary[fn_key]['promptsource'] = function_promptsource[fn_key]
-    return all_extractions, function_dictionary, total_tokens_prompted
-
-def f(file2contents, sample_files, functions, attribute, args):
-    # -- Get extractions from synthesized functions
-    function_dictionary = defaultdict(dict)
-    all_extractions: dict[str, dict[dict, list[str]]]  # {fn_key, {filename, [extractions]}}, attr
-    for fn_key, fn in functions.items():
-        print(f'\n{args=}')
-        all_extractions[fn_key], num_function_errors = apply_final_profiling_functions(
-            file2contents 
-            sample_files,
-            fn,
-            attribute,
-            args=args 
-        )
-        function_dictionary[fn_key]['function'] = fn
-        function_dictionary[fn_key]['promptsource'] = function_promptsource[fn_key]
-    return all_extractions, function_dictionary, total_tokens_prompted
+        # function_dictionary[fn_key]['promptsource'] = function_promptsource[fn_key]
+    return all_extractions, function_dictionary

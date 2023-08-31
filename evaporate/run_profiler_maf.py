@@ -37,7 +37,7 @@ from collections import defaultdict, Counter
 from utils import get_structure, get_manifest_sessions, get_file_attribute
 from profiler_utils import chunk_file, sample_scripts, set_profiler_args, filter_file2chunks
 from schema_identification import identify_schema
-from profiler import run_profiler, get_all_extractions, get_extractions_directly_from_LLM_model, get_extractions_functions
+from profiler import run_profiler, get_all_extractions, get_extractions_directly_from_LLM_model, get_extractions_using_llm_synthesized_functions, get_functions
 from evaluate_synthetic import main as evaluate_synthetic_main
 
 from pdb import set_trace as st
@@ -374,32 +374,31 @@ def run_experiment(profiler_args):
     # print(f'{contents=}')
 
     # -- Loop through every file in textbook (=data lake) and every chunk in it's txt file and extract attributes in right order
-    filename: str
+    total_tokens_prompted: int = 0
     print(f'processing files in {data_lake=} (data lake ~ textbook)')
+    filename: str
     for filename in file2chunks.keys():
         print(f'{filename=}')
         chunks: list[str] = file2chunks[filename]
         chunk: str
         for chunk in chunks:
+            file2current_chunk = {filename: chunk}  # hack to trick API to only extract things from 1 chunk
             for attribute in attributes:
-                file2chunk = {filename: chunk}  # hack to trick API to only extract things from 1 chunk
                 # - extract data attributes from chunk (LLM direct & synthesized funcs)
                 print(f'{profiler_args.EXTRACTION_MODELS=}')
-                total_tokens_prompted: int
                 llm_direct_all_extractions_current_chunk: dict[str, dict[dict, list[str]]]  # {mdl_name, {filename, [extractions]}}, attr
-                llm_direct_all_extractions_current_chunk, total_tokens_prompted = get_extractions_directly_from_LLM_model(file2chunks, attribute, manifest_sessions, profiler_args.EXTRACTION_MODELS, sample_files, overwrite_cache)  # sample_files = all files for now, so LLM directly extracts everything (expensive)
-                # print(f'{all_extractions=}')
-                # print(f'{type(all_extractions)=}')
+                llm_direct_all_extractions_current_chunk, num_toks = get_extractions_directly_from_LLM_model(file2current_chunk, attribute, manifest_sessions, profiler_args.EXTRACTION_MODELS, sample_files, overwrite_cache)  # sample_files = all files for now, so LLM directly extracts everything (expensive)
+                total_tokens_prompted += num_toks
+                # - extract data attributes from current chunk with (synthesized funcs)
                 # get extractor functions
                 manifest_session = manifest_sessions[profiler_args.GOLD_KEY]
-                functions, function_promptsource, num_toks = get_functions(file2chunks, sample_files, attribute, manifest_session, overwrite_cache=overwrite_cache)
+                functions, function_promptsource, num_toks = get_functions(file2current_chunk, sample_files, attribute, manifest_session, overwrite_cache=overwrite_cache)
                 total_tokens_prompted += num_toks
-
                 func_all_extractions_current_chunk: dict[str, dict[dict, list[str]]]  # {extractor_fun_name, {filename, [extractions]}}, attr
-                files2contents = {filename: chunk}
-                func_all_extractions_current_chunk, total_tokens_prompted = get_extractions_functions(file2chunks, attribute, manifest_sessions, profiler_args.EXTRACTION_MODELS, sample_files, overwrite_cache, args) 
+                func_all_extractions_current_chunk = get_extractions_using_llm_synthesized_functions(functions, file2current_chunk, attribute, manifest_sessions, sample_files, args, overwrite_cache) 
                 print()
                 # add idx where they appear in chunk
+                print()
                 # sort according to this idx
                 # then append them as a row according to sorted idx order
                 # continue to the next chunk
