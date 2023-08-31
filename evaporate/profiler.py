@@ -1,5 +1,16 @@
 """
 So in essence, "profiling" here means building a concise profile or summary of the key information in documents by extracting fields and values. https://claude.ai/chat/8c19bc99-b203-44b2-a0b6-782c07b62f65
+
+This is a summary of evaporate:
+Evaporate is a system that can automatically extract structured data from unstructured or semi-structured documents like HTML pages, PDFs, and text files. Based on the paper, Evaporate takes a collection of documents as input and outputs a structured table with columns corresponding to fields or attributes extracted from the documents.
+
+The key capabilities of Evaporate that allow it to extract fields/attributes automatically are:
+
+It uses large language models (LLMs) like GPT-3 that are pretrained on large amounts of text data. By prompts such as natural language descriptions and examples, the LLMs can be adapted to extract fields and values from documents without any customization or training data.
+It has strategies to synthesize extraction code from the LLMs that can be applied to process documents at scale after training on just a small sample. This makes it efficient compared to running the LLM on every single document.
+It generates multiple candidate extraction functions and aggregates their outputs using techniques like weak supervision to improve quality.
+It requires no human effort or labeling. The prompts used are generic and not customized to any domain. The same prompts work across different document types like HTML, PDFs, text etc.
+So in summary, by leveraging the versatility of LLMs and code synthesis techniques, Evaporate is able to automatically extract fields from heterogeneous document collections without any customization for different domains or document types. The paper shows it achieves high accuracy across diverse real-world datasets compared to prior specialized systems.
 """
 import os
 import random
@@ -280,6 +291,9 @@ def apply_final_profiling_functions(
     """
     Applies the given extraction function fn to each file in sample_files 
     to extract the specified attribute.
+    The files2conents in the original evaporate was the whole file, but it can also be a single 
+    chunk of text/str, so this function would do extract the attribute in the content string for
+    the designated strings in sample_files. 
 
     Args:
         files2contents (dict): Mapping of filenames to file contents
@@ -418,9 +432,9 @@ def apply_final_profiling_functions(
 def get_function_field_from_attribute(attribute):
     return re.sub(r"[^A-Za-z0-9]", "_", attribute)
 
-
+# get fns from LLM using chunks for attr
 def get_functions(
-    file2chunks: dict[str, list[str]],  # {filename: chunks} e.g, chunk = [chnnk1]
+    file2chunks: dict[str, list[str]],  # {filename: chunks} to use to generate extraction functions
     sample_files: list[str],  # for now my textbooks only have 1 file, so we use all files to generate extraction functions for each attribute
     # sample_files: list[str],  # in this context it does limit which files from data lake/textbook LLM uses to synthesize extraction functions functions
     attribute: str,
@@ -434,12 +448,13 @@ def get_functions(
     Since the functions are synthesized with an LLM, each chunk gives a function from the LLM with
     fixed context length (full file to generate extractor function for attribute dont fit).
 
+        # ideally if chunk = whoe content, then perhaps a more robust extractio fn for attr could be made using LLL, but LLM is limited in context length
         ex_fn_att: str = LLM(chunk, prompt_template, attribute)
 
     Synthesizes multiple candidate functions by prompting the LLM
     with different chunks and prompt templates.
-    Creates different extraction functions for depedning on the chunk and prompt template.
-    It uses all chunks and gives a bunch of extraction functions based on each chunk (and prompt template)
+    Creates different extraction functions for depending on the chunk and prompt template.
+    It uses all chunks (to process all file) and gives a bunch of extraction functions based on each chunk (and prompt template)
 
     Args:
         file2chunks (dict[str, list[str]]): Filenames to chunks mapping

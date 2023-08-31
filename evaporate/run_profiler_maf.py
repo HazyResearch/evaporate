@@ -375,18 +375,22 @@ def run_experiment(profiler_args):
     # print(f'{contents=}')
     
     # -- When the data lake is really large and has multiple files, evaporate would have generated extraction functions for each attribute using a subset of the files and using a subset of the chunks in each file.
-    # print(f'{sample_files=} (Only that subset of files will be used to create extraction functions)')
-    # function_dictionary: dict[str, dict[str, dict[str, str]]] = defaultdict(lambda: defaultdict(dict))  # {attr, {fun_key, {"function", fn_str}}
-    # model: str
-    # for model in profiler_args.MODELS:
-    #     # manifest_session = manifest_sessions[profiler_args.GOLD_KEY]  # TODO: perhaps will all manifest sessions, right now I only do 1 so not to worry
-    #     manifest_session = manifest_sessions[model]  # TODO: perhaps will all manifest sessions, right now I only do 1 so not to worry
-    #     for attribute in attributes:
-    #         # get_functions already subsets based on sample_files, so no need to only loop through file in sample_files here (odd evaporate api, bad code imho), note file2chunks already created before this
-    #         functions, function_promptsource, num_toks = get_functions(file2current_chunk, sample_files, attribute, manifest_session, overwrite_cache=overwrite_cache) 
-    #         function_dictionary[attribute][fn_key]['function'] = fn  
-    #         function_dictionary[attribute][fn_key]['promptsource'] = function_promptsource[fn_key]
-    # # post condition guarantee: function_dictionary has all the functions for all the attributes (by using the subset of files in sample_files and using all sample chunks in file)
+    print(f'{sample_files=} (Only that subset of files will be used to create extraction functions)')
+    total_tokens_prompted: int = 0
+    function_dictionary: dict[str, dict[str, dict[str, str]]] = defaultdict(lambda: defaultdict(dict))  # {attr, {fun_key, {"function", fn_str}}
+    model: str
+    for model in profiler_args.MODELS:
+        # manifest_session = manifest_sessions[profiler_args.GOLD_KEY]  # TODO: perhaps will all manifest sessions, right now I only do 1 so not to worry
+        manifest_session = manifest_sessions[model]  # TODO: perhaps will all manifest sessions, right now I only do 1 so not to worry
+        for attribute in attributes:
+            # get_functions already subsets based on sample_files, so no need to only loop through file in sample_files here (odd evaporate api, bad code imho), note file2chunks already created before this
+            functions, function_promptsource, num_toks = get_functions(file2current_chunk, sample_files, attribute, manifest_session, overwrite_cache=overwrite_cache) 
+            # collect fns for each attr
+            for fn_key, fn in functions.items():
+                function_dictionary[attribute][fn_key]['function'] = fn  
+                function_dictionary[attribute][fn_key]['promptsource'] = function_promptsource[fn_key]
+            total_tokens_prompted += num_toks
+    # post condition guarantee: function_dictionary has all the functions for all the attributes (by using the subset of files in sample_files and using all sample chunks in file)
 
     # -- Loop through every file in textbook (=data lake) and every chunk in it's txt file and extract attributes in right order
     # GOAL: extract ALL attr data in the **right order** wrt textbook files (single file for now) and thus all chunks in question for the textbook [file -> str or file -> [all chunks]] 1 file per textbook/data lake for now.
