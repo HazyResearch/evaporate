@@ -294,6 +294,7 @@ def apply_final_profiling_functions(
     The files2conents in the original evaporate was the whole file, but it can also be a single 
     chunk of text/str, so this function would do extract the attribute in the content string for
     the designated strings in sample_files. 
+    Also save functions to cache
 
     Args:
         files2contents (dict): Mapping of filenames to file contents
@@ -448,7 +449,7 @@ def get_functions(
     Since the functions are synthesized with an LLM, each chunk gives a function from the LLM with
     fixed context length (full file to generate extractor function for attribute dont fit).
 
-        # ideally if chunk = whoe content, then perhaps a more robust extractio fn for attr could be made using LLL, but LLM is limited in context length
+        # ideally if chunk = whole content, then perhaps a more robust extractio fn for attr could be made using LLL, but LLM is limited in context length
         ex_fn_att: str = LLM(chunk, prompt_template, attribute)
 
     Synthesizes multiple candidate functions by prompting the LLM

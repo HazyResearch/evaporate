@@ -374,64 +374,98 @@ def run_experiment(profiler_args):
     # print(f'{chunks=}')
     # contents: str = file2contents[filename]
     # print(f'{contents=}')
-    
-    # -- When the data lake is really large and has multiple files, evaporate would have generated extraction functions for each attribute using a subset of the files and using a subset of the chunks in each file.
-    print(f'{sample_files=} (Only that subset of files will be used to create extraction functions)')
-    total_requests: int = 0
+    file2chunks: dict[str, list[str]] = {filename: chunks[3:5]} # 0, 1
+    chunks: list[str] = file2chunks[filename]
+    print(f'{len(chunks)=}')
+
+    # -- Start my code
     total_tokens_prompted: int = 0
-    function_dictionary: dict[str, dict[str, dict[str, str]]] = defaultdict(lambda: defaultdict(dict))  # {attr, {"function", {fn_key, fn}}
-    model: str
-    for model in profiler_args.MODELS:
-        # manifest_session = manifest_sessions[profiler_args.GOLD_KEY]  # TODO: perhaps will all manifest sessions, right now I only do 1 so not to worry
-        manifest_session = manifest_sessions[model]  # TODO: perhaps will all manifest sessions, right now I only do 1 so not to worry
-        for idx_attr, attribute in enumerate(attributes):
-            print(f'{attribute=} ({idx_attr+1} / {len(attributes)})')
-            # get_functions already subsets based on sample_files, so no need to only loop through file in sample_files here (odd evaporate api, bad code imho), note file2chunks already created before this
-            functions, function_promptsource, num_toks = get_functions(file2chunks, sample_files, attribute, manifest_session, overwrite_cache=overwrite_cache) 
-            # collect fns for each attr
-            for fn_key, fn in functions.items():
-                function_dictionary[attribute]['function'][fn_key] = fn  
-                function_dictionary[attribute]['promptsource'][fn_key] = function_promptsource
-            total_tokens_prompted += num_toks
-            print(f'{total_tokens_prompted=}')
-            total_requests += len(chunks) * 2 # 2 prompts per chunk, we have len(chunks) 
-            print(f'{total_requests=}')
-            # time.sleep(0.5)
+    
+    # Idea: if extracting only using LLM doesnt work then we can use a extraction functions by using a subset of chunks
+    # -- When the data lake is really large and has multiple files, evaporate would have generated extraction functions for each attribute using a subset of the files and using a subset of the chunks in each file.
+    use_saved_functions = False
+    # use_saved_functions = True
+    if use_saved_functions:
+        function_dictionary: dict[str, dict[str, dict[str, str]]] = defaultdict(lambda: defaultdict(dict))  # {attr, {"function", {fn_key, fn}}
+        path2save_functions = Path(args.cache_dir + '/function_cache/').expanduser()
+        path2function_dictionary = path2save_functions / "function_dictionary.pkl"
+        with open(path2function_dictionary, 'rb') as f:
+            function_dictionary = pickle.load(f)
+    else:
+        print(f'{sample_files=} (Only that subset of files will be used to create extraction functions)')
+        total_requests: int = 0
+        # function_dictionary: dict[str, dict[str, dict[str, str]]] = defaultdict(lambda: defaultdict(dict))  # {attr, {"function", {fn_key, fn}}
+        function_dictionary = defaultdict(dict)
+        model: str
+        for model in profiler_args.MODELS:
+            # manifest_session = manifest_sessions[profiler_args.GOLD_KEY]  # TODO: perhaps will all manifest sessions, right now I only do 1 so not to worry
+            manifest_session = manifest_sessions[model]  # TODO: perhaps will all manifest sessions, right now I only do 1 so not to worry
+            for idx_attr, attribute in enumerate(attributes):
+                print(f'{attribute=} ({idx_attr+1} / {len(attributes)})')
+                # get_functions already subsets based on sample_files, so no need to only loop through file in sample_files here (odd evaporate api, bad code imho), note file2chunks already created before this
+                functions, function_promptsource, num_toks = get_functions(file2chunks, sample_files, attribute, manifest_session, overwrite_cache=overwrite_cache) 
+                # collect fns for each attr
+                for fn_key, fn in functions.items():
+                    function_dictionary[attribute]['function'][fn_key] = fn  
+                    function_dictionary[attribute]['promptsource'][fn_key] = function_promptsource
+                total_tokens_prompted += num_toks
+                print(f'{total_tokens_prompted=}')
+                total_requests += len(chunks) * 2 # 2 prompts per chunk, we have len(chunks) 
+                print(f'{total_requests=}')
+                # time.sleep(0.5)
+        # save function_dictionary to cache args.cache_dir + '/function_cache/'
+        path2save_functions = Path(args.cache_dir + '/function_cache/').expanduser()
+        print(f'{path2save_functions=}')
+        os.makedirs(path2save_functions, exist_ok=True)
+        path2function_dictionary = path2save_functions / "function_dictionary.pkl"
+        with open(path2function_dictionary, 'wb') as f:
+            pickle.dump(function_dictionary, f)
+        path2function_dictionary_json = path2save_functions / "function_dictionary.json"
+        with open(path2function_dictionary_json, 'w') as f:
+            json.dump(function_dictionary, f, indent=4)
     # post condition guarantee: function_dictionary has all the functions for all the attributes (by using the subset of files in sample_files and using all sample chunks in file)
+    print(f'{len(function_dictionary.keys())=}')
+    print(f"Function dictionary saved to {path2function_dictionary=}")
+    print(f"Function dictionary saved to {path2function_dictionary_json=}")
 
     # -- Loop through every file in textbook (=data lake) and every chunk in it's txt file and extract attributes in right order
     # GOAL: extract ALL attr data in the **right order** wrt textbook files (single file for now) and thus all chunks in question for the textbook [file -> str or file -> [all chunks]] 1 file per textbook/data lake for now.
     print(f'processing files in {data_lake=} (data lake ~ textbook)')
     all_extractions: dict = defaultdict(dict)  # {attr, {ex_method, {filaname, [extractions]}}} = {attr, {mdl_name, {filename, [extractions]} + {fn_key, {filename, [extractions]} }
+    all_ed: list[str] = []  # all extractions data e.g., ["1.1 example", "1.2 remark", ...]
     filename: str
     for filename in file2chunks.keys():  # file2chunks files have already been chunked
         print(f'{filename=}')
         chunks: list[str] = file2chunks[filename]
         # - Loop through every chunk in file
+        chunk_eds: list[str] = []  # ["1.2 remark", "1.1 example..."], extraction for the current chunk
         chunk: str
-        for chunk in chunks:
+        for chunk in chunks:  # chunk == current_chunk
+            # --- Get all extractions for this chunk
+            eds: list[str] = [] # let's collect all the data for this specific chunk, so for all attributes. Then once you have them all you can sort wrt current chunk. 
             attribute: str
             for attribute in attributes:
+                # - Extract data attributes from chunk using the LLM directly
                 file2current_chunk = {filename: chunk}  # hack to trick evaporate API to only extract things from 1 chunk
-                # - Extract data attributes from chunk (LLM direct)
                 print(f'{profiler_args.EXTRACTION_MODELS=}')
-                llm_direct_all_extractions_current_chunk: dict[str, dict[str, list[str]]]  # {mdl_name, {filename, [extractions]}}, attr
+                llm_direct_all_extractions_current_chunk: dict[str, dict[str, list[str]]] = {} # {mdl_name, {filename, [extractions]}}, attr
                 llm_direct_all_extractions_current_chunk, num_toks = get_extractions_directly_from_LLM_model(file2current_chunk, attribute, manifest_sessions, profiler_args.EXTRACTION_MODELS, sample_files, overwrite_cache)  # sample_files = all files for now, so LLM directly extracts everything (expensive)
                 total_tokens_prompted += num_toks
                 # - Extract data attributes from current chunk with (synthesized funcs)
-                # get extractor functions
-                functions = function_dictionary[attribute]['function']  # {fn_key, fn_str}
-                func_all_extractions_current_chunk: dict[str, dict[dict, list[str]]]  # {fn_key, {filename, [extractions]}}
-                func_all_extractions_current_chunk, function_dictionary = get_extractions_using_functions(functions, file2current_chunk, attribute, manifest_sessions, sample_files, args, overwrite_cache=overwrite_cache, function_promptsource=function_promptsource) 
-                # - All extractions
-                # combine dictionaries of extractions
-                all_extractions[attribute] = dict(**llm_direct_all_extractions_current_chunk, **all_extractions)
-                print()
-                # add idx where they appear in chunk
-                print()
-                # sort according to this idx
-                # then append them as a row according to sorted idx order
-                # continue to the next chunk
+                func_all_extractions_current_chunk: dict[str, dict[dict, list[str]]]  = {} # {fn_key, {filename, [extractions]}}
+                # combine dictionaries of extractions: all_extractions = {attr, {ex_method, {filaname, [extractions]}}}
+                combined_extractions: dict = dict(**llm_direct_all_extractions_current_chunk, **func_all_extractions_current_chunk)  # from fns and mdls
+                all_extractions[attribute] = combined_extractions
+                extraction_methods = list(combined_extractions.keys())
+                # for all extraction method, attribute (there is a single filename only), append eds
+                for extraction_method in extraction_methods:
+                    extractions_current_chunk: list[str] = all_extractions[attribute][extraction_method][filename] 
+                    eds += extractions_current_chunk  # eds.extend(extractions_current_chunk)
+                # print()
+            # --- after all attributes have been looped through we have all the data for this chunk
+            print(f'{eds=} (lets print all the data for this chunk)')
+            print()
+
             pass
 
     # 
