@@ -16,10 +16,19 @@ get_structure in utils.py calls -> get_args - def in configs.py
 - num_top_k_scripts: Number of extraction scripts to ensemble.
 - train_size: Number of sample files to use for training.
 - combiner_mode: How to combine multiple extractions.
-- use_dynamic_backoff: Use extraction functions or LLM to get values/profile/summary for attributes.
+.
     - True = Generate and use extraction functions
     - False = No function generation, rely on direct LLM extraction
 - KEYS: API keys for models.
+
+OpenIE := automatically extracts subject-relation-object triples from text without predefined schemas.
+ClosedIE := extracts instances of user-specified relations from text.
+
+For example, from a sentence like "Paris is the capital of France", an OpenIE system will automatically identify 
+"is-capital-of" as a salient relation between the entities Paris and France, whereas a ClosedIE system would only 
+find instances of relations it has been pre-configured to extract.
+
+Open because the attributes/relations to be extracted are "open ended"/unrestricted and not predefined.
 """
 import os
 import sys
@@ -312,11 +321,11 @@ def run_experiment(profiler_args):
     # ---- Running run_experiment
     print(f'\n---- Running run_experiment...')
     do_end_to_end = profiler_args.do_end_to_end
-    num_attr_to_cascade = profiler_args.num_attr_to_cascade
+    num_attr_to_cascade = profiler_args.num_attr_to_cascade  # TODO: what is this for? later
     train_size = profiler_args.train_size
     data_lake = profiler_args.data_lake 
     overwrite_cache = profiler_args.overwrite_cache
-    chunk_size = 3000
+    chunk_size: int = 3000  # TODO: should we change the chunking algorithm so that it's in terms of passages? I think so, wrt the size of the tokenizer we are using or at least clarify what chunk size means here
     print(f'{do_end_to_end=}. If True then OpenIE (learn schema) else ClosedIE (ground truth/human specified).')
     print(f'{chunk_size=}')
     
@@ -355,6 +364,7 @@ def run_experiment(profiler_args):
         if 'gold_attributes.yaml' in getattr(args, 'gold_attributes_file', ''):
             data = yaml.safe_load(open(Path(args.gold_attributes_file).expanduser(), 'r'))
             gold_attributes = data['gold_attributes']
+            print(f'{args.args.gold_attributes_file=}')
         else:
             gold_attributes = get_gold_metadata(args)  # original evaporate code
     assert not do_end_to_end, f"Only OpenIE is supported right now {do_end_to_end=}"
@@ -676,4 +686,8 @@ def main():
 
 
 if __name__ == "__main__":
+    import time
+    start = time.time()
     main()
+    # print time taken in seconds minutes and hours in one line then make sound
+    print(f"--- {time.time() - start} seconds, {(time.time() - start)/60} minutes, {(time.time() - start)/3600} hours ---\a\a\n")
