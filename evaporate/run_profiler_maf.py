@@ -39,6 +39,14 @@ import yaml
 import datetime
 from pathlib import Path
 from tqdm import tqdm
+# I don't get it, but it seems to need the empty string at the front to find evaporate despite being pip installed -e . and in the sys.path TODO: figure out worth it? https://chat.openai.com/g/g-KV0CvoH8Y-python-excellent-comments-doc-strings-types/c/125c002a-3e77-41a9-8130-b3ae8da26d4c 
+# sys.path.pop(0)
+# sys.path.insert(0, "")
+if sys.path[0] != "":  # TODO: solve later ask SO https://chat.openai.com/g/g-KV0CvoH8Y-python-excellent-comments-doc-strings-types/c/125c002a-3e77-41a9-8130-b3ae8da26d4c
+    sys.path.insert(0, "")
+print()
+print(sys.path)
+import evaporate
 import pickle
 import argparse
 from collections import defaultdict, Counter

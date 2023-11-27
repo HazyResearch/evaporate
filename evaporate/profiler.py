@@ -12,6 +12,7 @@ It generates multiple candidate extraction functions and aggregates their output
 It requires no human effort or labeling. The prompts used are generic and not customized to any domain. The same prompts work across different document types like HTML, PDFs, text etc.
 So in summary, by leveraging the versatility of LLMs and code synthesis techniques, Evaporate is able to automatically extract fields from heterogeneous document collections without any customization for different domains or document types. The paper shows it achieves high accuracy across diverse real-world datasets compared to prior specialized systems.
 """
+import sys
 import os
 import random
 from pathlib import Path

@@ -1,12 +1,10 @@
 # -- Create conda env for evaporate
 conda create --name evaporate python=3.10
-# conda create --name evaporate python=3.8
 conda activate evaporate
+# conda env remove --name evaporate
 
 # -- Evaporate code
 cd ~
-# cd $AFS
-# echo $AFS
 git clone git@github.com:brando90/evaporate.git
 # ln -s /afs/cs.stanford.edu/u/brando9/evaporate $HOME/evaporate
 cd ~/evaporate
