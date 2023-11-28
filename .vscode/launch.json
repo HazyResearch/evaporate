@@ -1,0 +1,41 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Profiler Evaporate",
+            "type": "python",
+            "request": "launch",
+            "program": "/lfs/skampere1/0/brando9/evaporate/evaporate/run_profiler_maf.py",
+            "console": "integratedTerminal",
+            // crucial due some bug in how python project & packages is set up https://chat.openai.com/g/g-KV0CvoH8Y-python-excellent-comments-doc-strings-types/c/125c002a-3e77-41a9-8130-b3ae8da26d4c
+            "cwd": "/lfs/skampere1/0/brando9/evaporate",
+            "args": [
+                // /lfs/skampere1/0/brando9/evaporate/evaporate/configs.py
+                "--data_lake", "TODO",
+                "--do_end_to_end", "False",
+                "--num_attr_to_cascade", "25",
+                "--num_top_k_scripts", "5",
+                "--train_size", "10",
+                "--combiner_mode", "ws",
+                "--use_dynamic_backoff", "True",
+                "--KEYS", "${env:keys}"
+            ],
+            "env": {
+                // "keys": "${command:extension.command.getOpenAIApiKey}",
+                "DATA_LAKE": "TODO"
+            },
+            "preLaunchTask": "evaporate-setup"
+        }
+    ]
+}

@@ -1,6 +1,7 @@
 import argparse
 import os
 from pathlib import Path
+import yaml
 
 # original
 # BASE_DATA_DIR = "/data/evaporate/"
@@ -86,40 +87,27 @@ def get_args(database_name):
         }
     }
     # - get from yaml
-    data_lakes_config_path = '~/massive-autoformalization-maf/configs/data_lakes/data_lakes.yaml'
-    data_lakes_config_path = Path(data_lakes_config_path).expanduser()
-    import yaml
+    data_lakes_config_path: Path = Path('~/evaporate/configs/data_lakes/data_lakes.yaml').expanduser()
     with open(data_lakes_config_path, 'r') as f:
-        data_lakes_config = yaml.load(f, Loader=yaml.FullLoader)
-        data_lakes_config = dict(data_lakes_config)  # {data_lake_name: config_dict}
-    for data_lake_name, data_lake_config_dict in data_lakes_config.items():
-        base_name = data_lake_config_dict['base_name']
-        base_path = os.path.expanduser(data_lake_config_dict['base_path'])
-        database_name = os.path.expanduser(data_lake_config_dict['database_name'])
-        assert database_name == data_lake_name, f'Err: {database_name} != {data_lake_name}'
-        # fill the strings with the base path and dattabase_name
-        for config_key, config_value in data_lake_config_dict.items():
-            # filled_string = extractions_base_path.format(base_path=base_path, database_name=database_name)
-            config_value = config_value.format(base_path=base_path, database_name=database_name, base_name=base_name)
-            data_lake_config_dict[config_key] = config_value
-        data_lakes_config[data_lake_name] = data_lake_config_dict
-        CONSTANTS[data_lake_name] = data_lake_config_dict
-        # CONSTANTS[data_lake_name]['data_dir'] = data_lake_config_dict[data_lake_name]['data_dir']
-        # CONSTANTS[data_lake_name]['cache_dir'] = data_lake_config_dict[data_lake_name]['cache_dir']
-        # CONSTANTS[data_lake_name]['generative_index_path'] = data_lake_config_dict[data_lake_name]['generative_index_path']
-        # CONSTANTS[data_lake_name]['topic'] = data_lake_config_dict[data_lake_name]['topic']
-        # # note might be gold attributes as a hack
-        # CONSTANTS[data_lake_name]['gold_extractions_file'] = data_lake_config_dict[data_lake_name]['gold_extractions_file']
+        data_lakes_config: dict = dict(yaml.load(f, Loader=yaml.FullLoader))  # {data_lake_name: config_dict}
+        for data_lake_name, data_lake_config_dict in data_lakes_config.items():
+            base_name = data_lake_config_dict['base_name']
+            # database_name = os.path.expanduser(data_lake_config_dict['database_name'])
+            # assert database_name == data_lake_name, f'Err: {database_name} != {data_lake_name}'
+            for config_key, config_value in data_lake_config_dict.items():
+                config_value = config_value.format(base_name=base_name)
+                data_lake_config_dict[config_key] = config_value
+            data_lakes_config[data_lake_name] = data_lake_config_dict
+            CONSTANTS[data_lake_name] = data_lake_config_dict
 
     # - load the data lake config
     args = parser.parse_args(args=[])
-
     args_fill = CONSTANTS[database_name]
     print(f'{args_fill=}')
     args.data_dir = args_fill["data_dir"]
     args.cache_dir = args_fill["cache_dir"]
     args.generative_index_path = args_fill["generative_index_path"]
-    args.topic = args_fill['topic']
+    # args.topic = args_fill['topic']
     args.gold_extractions_file = args_fill['gold_extractions_file']
     args.gold_attributes_file = args_fill['gold_attributes_file']
     args.data_lake = database_name

@@ -46,8 +46,19 @@ from evaluate_profiler import get_topk_scripts_per_field, evaluate
 from profiler_utils import filter_file2chunks, check_vs_train_extractions, clean_function_predictions
 
 # import sys
+# print(sys.path)
 # sys.path.append(f"./weak_supervision/")
-# from evaporate.run_ws import run_ws
+# sys.path.append(os.path.expanduser(f"~/evaporate/evaporate/weak_supervision"))
+# # sys.path.append(f"~/brando9/evaporate/evaporate/weak_supervision")
+# # sys.path.append(f"~/evaporate/evaporate/weak_supervision")
+
+# I don't get it, but it seems to need the empty string at the front to find evaporate despite being pip installed -e . and in the sys.path TODO: figure out worth it? https://chat.openai.com/g/g-KV0CvoH8Y-python-excellent-comments-doc-strings-types/c/125c002a-3e77-41a9-8130-b3ae8da26d4c 
+if sys.path[0] != "":  # TODO: solve later ask SO https://chat.openai.com/g/g-KV0CvoH8Y-python-excellent-comments-doc-strings-types/c/125c002a-3e77-41a9-8130-b3ae8da26d4c
+    sys.path.insert(0, "")
+print()
+print(sys.path)
+os.chdir('~/evaporate')
+# TODO: fix it seems code only works if you run vscode debugger at ~/evaporate https://chat.openai.com/g/g-KV0CvoH8Y-python-excellent-comments-doc-strings-types/c/125c002a-3e77-41a9-8130-b3ae8da26d4c
 from evaporate.weak_supervision.run_ws import run_ws
 
 class TimeoutException(Exception): pass

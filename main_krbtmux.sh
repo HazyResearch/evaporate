@@ -121,7 +121,10 @@ export keys=$(cat ~/data/openai_api_key_koyejolab_brando.txt)
 # conda activate maf
 conda activate evaporate
 
+# see /lfs/skampere1/0/brando9/evaporate/evaporate/configs.py to see the name of data lake that is at the config e.g., /lfs/skampere1/0/brando9/evaporate/evaporate/configs.py
 DATA_LAKE=TODO  # TODO, what does code expect?
+# you need to run from: https://chat.openai.com/g/g-KV0CvoH8Y-python-excellent-comments-doc-strings-types/c/125c002a-3e77-41a9-8130-b3ae8da26d4c
+cd ~/evaporate/
 
 python ~/evaporate/evaporate/run_profiler_maf.py \
     --data_lake $DATA_LAKE \
