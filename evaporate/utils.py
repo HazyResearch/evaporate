@@ -1,10 +1,13 @@
 import os
 import json
 from collections import Counter, defaultdict
-
+from pdb import set_trace as st
+import os
 from manifest import Manifest
 from configs import get_args
 from prompts import Step
+
+from pathlib import Path
 
 cur_idx = 0
 
@@ -88,23 +91,33 @@ def get_unique_file_types(files):
     return suffix2file, suffix2count
 
 
-def get_structure(dataset_name):
-    args = get_args(dataset_name)
+def get_structure(dataset_name, profiler_args = None, exist_ok=False):
+    """
+    Get args for data lake from config.py (and other structures related to the data lake).
+    """
+    args = get_args(dataset_name)  # get args for data lake config, in configs.py
+    # - Put mode
+    # args.generative_index_path = f'{args.generative_index_path}/{"_".join(profiler_args.MODELS)}' if profiler_args is not None else args.generative_index_path
+    # args.cache_dir = f'{args.cache_dir}/{"_".join(profiler_args.MODELS)}' if profiler_args is not None else args.cache_dir
+    print(f'{profiler_args.MODELS=}')
+    args.generative_index_path = f'{args.generative_index_path}/{"_".join(profiler_args.MODELS)}' 
+    args.cache_dir = f'{args.cache_dir}/{"_".join(profiler_args.MODELS)}'
+    # - For this to work MODELS is called fist so get_experiment_args and get_profiler_args are gotten first then the MODELS dict that is harcoded this this get_args, get_structure.
     if not os.path.exists(args.cache_dir):
-        os.makedirs(args.cache_dir)
+        os.makedirs(args.cache_dir, exist_ok=exist_ok)
         
     if not os.path.exists(args.generative_index_path):
-        os.makedirs(args.generative_index_path)
+        os.makedirs(args.generative_index_path, exist_ok=exist_ok)
 
     if not os.path.exists(args.generative_index_path):
-        os.makedirs(args.generative_index_path)
+        os.makedirs(args.generative_index_path, exist_ok=exist_ok)
     
     # all files
     cache_path = f"{args.cache_dir}/all_files.json"
     if not os.path.exists(cache_path) or args.overwrite_cache:
         files = get_all_files(args.data_dir)
         with open(cache_path, "w") as f:
-            json.dump(files, f)
+            json.dump(files, f, indent=4)
     else:
         with open(cache_path) as f:
             files = json.load(f)
@@ -114,7 +127,7 @@ def get_structure(dataset_name):
     if not os.path.exists(cache_path) or args.overwrite_cache:
         directory_hierarchy = get_directory_hierarchy(args.data_dir)
         with open(cache_path, "w") as f:
-            json.dump(directory_hierarchy, f)
+            json.dump(directory_hierarchy, f, indent=4)
     else:
         with open(cache_path) as f:
             directory_hierarchy = json.load(f)
@@ -148,7 +161,7 @@ def get_manifest_sessions(MODELS, MODEL2URL=None, KEYS=[]):
                     client_connection=key,
                 )
                 manifest_sessions[model].append(manifest)
-        elif any(kwd in model for kwd in ["gpt-4"]):
+        elif any(kwd in model for kwd in ["gpt-4", 'gpt-3.5-turbo']):
             if not KEYS:
                 raise ValueError("You must provide a list of keys to use these models.")
             for key in KEYS:
@@ -202,8 +215,24 @@ def get_manifest_session(
         **params,
         **cache_params,
     )
+
+    # import openai
+    # keys = open(Path("~/data/openai_api_key_koyejolab_brando.txt").expanduser()).read().strip()
+    # openai.BASE_API_URL = f'https://api.openai.com/v1/orgs/org-u64SQ7WRilfOivzCxLx2w91c'
+    # print(f'{keys=}')
+    # openai.api_key = keys
+    # # response = openai.ChatCompletion.create(model="gpt-3.5-turbo", temperature=0, messages=[{"role": "system", "content": "You are a highly skilled AI trained in language to be helpful."}, {"role": "user"}])
+    # # print(f"{response=}")
+    # chat_dict = [
+    #     {"role": "system", "content": "You are a helpful assistant."},
+    #     {"role": "user", "content": "Who won the world cup in 2006?"},
+    # ]
+    # response = manifest.run(chat_dict, max_tokens=100)
+    # print(f"{response=}")
     
-    params = manifest.client_pool.get_client().get_model_params()
+    # st()
+    # params = manifest.client_pool.get_client().get_model_params()
+    params = manifest.client_pool.get_next_client().get_model_params()
     model_name = params["model_name"]
     if "engine" in params:
         model_name += f"_{params['engine']}"

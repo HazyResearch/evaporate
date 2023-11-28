@@ -1,0 +1,35 @@
+# - Used in run_profiler.py
+gold_attributes:
+# reals maths textbook style
+  - theorem
+  - theorem statement
+  - corollary
+  - lemma
+  - proposition
+  - proof
+# competition style TODO: plural?
+  - problem
+  - exercise
+  - answer
+  - solution
+# other
+  # - definition
+  # - example
+  # - axiom
+  # - remark
+  # - proof sketch
+  # - proof idea
+  # - law
+  # - notation
+  # - conjecture
+  # - postulate
+  # - correspondence
+  # - algorithm
+  # - definition-theorem
+  # - identity
+  # - principle
+  # - rule
+  # - formula
+  # - counterexample
+  # - observation
+  # - assumption

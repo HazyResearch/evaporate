@@ -1,0 +1,12 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "evaporate-setup",
+            "type": "shell",
+            // "command": "activate evaporate && export keys=$(cat ~/data/openai_api_key_koyejolab_brando.txt)"
+            // "command": "conda activate evaporate && export keys=$(cat ~/data/openai_api_key_koyejolab_brando.txt)"
+            "command": "export keys=$(cat ~/data/openai_api_key_koyejolab_brando.txt)"
+        }
+    ]
+}

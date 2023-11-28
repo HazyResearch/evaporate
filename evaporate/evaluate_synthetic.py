@@ -509,6 +509,7 @@ def main(
         gold_attributes=[], 
         mappings_names={}
 ):
+    print(f'{main=}')
     gold_extractions_file = args.gold_extractions_file
     train_size = profiler_args.train_size
 

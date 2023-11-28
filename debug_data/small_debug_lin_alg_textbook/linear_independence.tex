@@ -1,0 +1,29 @@
+\documentclass{article}
+\usepackage{amsmath,amsthm,amsfonts}
+
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{corollary}{Corollary}[theorem]
+\newtheorem{lemma}[theorem]{Lemma}
+
+% generated from chatgpt gpt4: https://chat.openai.com/share/c4e54d91-eec3-4fd5-ba69-3ce4afb049fc
+
+\begin{document}
+
+%% --------------------
+\section{Linear Independence}
+This section delves into the important concept of linear independence, which is crucial for understanding the structure of vector spaces.
+
+\begin{definition}[Linear Independence]
+A set of vectors is said to be linearly independent if no vector in the set can be expressed as a linear combination of the other vectors.
+\end{definition}
+
+\begin{theorem}[Linear Dependence Lemma]
+If a set of vectors {v_1, ..., v_n} in a vector space V is linearly dependent and v_1 is not the zero vector, then there exists j such that v_j is a linear combination of the preceding vectors v_1, ..., v_{j-1}.
+\end{theorem}
+
+\begin{proof}
+Since the set is linearly dependent, there exist scalars a_1, ..., a_n, not all zero, such that a_1*v_1 + ... + a_n*v_n = 0. If a_1 = ... = a_{j-1} = 0 for some j, then a_j*v_j + ... + a_n*v_n = 0 and a_j != 0, therefore v_j = - (a_{j+1}/a_j) * v_{j+1} - ... - (a_n/a_j) * v_n, expressing v_j as a linear combination of the following vectors.
+\end{proof}
+
+\end{document}

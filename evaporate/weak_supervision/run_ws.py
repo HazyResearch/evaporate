@@ -7,7 +7,8 @@ import random
 import cvxpy as cp
 import scipy as sp
 from tqdm import tqdm
-from methods import Aggregator
+from weak_supervision.methods import Aggregator
+# from evaporate.weak_supervision import methods
 from metal.label_model import LabelModel
 from collections import defaultdict, Counter
 

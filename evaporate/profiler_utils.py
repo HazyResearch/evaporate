@@ -1,5 +1,5 @@
-
 import re
+import os
 import argparse
 import random
 from bs4 import BeautifulSoup
@@ -7,6 +7,18 @@ from collections import Counter, defaultdict
 
 
 def set_profiler_args(profiler_args):
+    """
+    Configures the profiler (=summarizer) pipeline itself e.g., size of chunk, eval_size, if remove_tables or not etc.
+    How the profile/summary of the document will look like. 
+    While the experiment_args is the hyperparameters for the actual experiment 
+    e.g., if the combiner is weak-supervised (ws) or majority-vote (mv), etc.
+
+    I removed all args that were part of the experiment to make this less confusing. 
+    This will be as much as I can only about the profiling/summarization pipeline and not how the experiment
+    works becuase of the ML.
+
+    So crucial to merge the two args into one properly before running experiment. 
+    """
 
     parser = argparse.ArgumentParser(
         "LLM profiler.",
@@ -19,11 +31,11 @@ def set_profiler_args(profiler_args):
         default=5000
     )
 
-    parser.add_argument(
-        "--train_size",
-        type=int,
-        default=15,
-    )
+    # parser.add_argument(
+    #     "--train_size",
+    #     type=int,
+    #     default=15,
+    # )
 
     parser.add_argument(
         "--eval_size",
@@ -37,18 +49,18 @@ def set_profiler_args(profiler_args):
         default=-1,
     )
 
-    parser.add_argument(
-        "--num_top_k_scripts",
-        type=int,
-        default=1,
-        help="of all the scripts we generate for the metadata fields, number to retain after scoring their qualities",
-    )
+    # parser.add_argument(
+    #     "--num_top_k_scripts",
+    #     type=int,
+    #     default=1,
+    #     help="of all the scripts we generate for the metadata fields, number to retain after scoring their qualities",
+    # )
 
     parser.add_argument(
         "--extraction_fraction_thresh",
         type=int,
         default=0.9,
-        help="for abstensions approach",
+        help="for abstensions (=miss/omission/failure to extract) approach",
     )
 
     parser.add_argument(
@@ -71,12 +83,12 @@ def set_profiler_args(profiler_args):
         default=15,
     )
 
-    parser.add_argument(
-        "--use_dynamic_backoff",
-        type=bool,
-        default=True,
-        help="Whether to do the function generation workflow or directly extract from chunks",
-    )
+    # parser.add_argument(
+    #     "--use_dynamic_backoff",
+    #     type=bool,
+    #     default=True,
+    #     help="Whether to do the extraction function generation workflow or directly extract using LLM from chunks, to get data from doc for attributes.",
+    # )
 
     parser.add_argument(
         "--use_qa_model",
@@ -153,12 +165,12 @@ def set_profiler_args(profiler_args):
         help="For ablations that select functions using ground truth instead of the FM.",
     )
 
-    parser.add_argument(
-        "--combiner_mode",
-        type=str,
-        default='mv',
-        help="For ablations that select functions using ground truth instead of the FM.",
-    )
+    # parser.add_argument(
+    #     "--combiner_mode",
+    #     type=str,
+    #     default='mv',
+    #     help="For ablations that select functions using ground truth instead of the FM.",
+    # )
 
     parser.add_argument(
         "--use_alg_filtering",
@@ -191,6 +203,8 @@ def sample_scripts(files, train_size=5):
         sample_files = files
     sample_contents = []
     for sample_file in sample_files:
+        # if os.path.isdir(sample_file):
+        #     continue
         with open(sample_file, 'r') as f:
             sample_contents.append(f.read())
     return sample_files
@@ -362,6 +376,35 @@ def clean_metadata(field):
 
 
 def filter_file2chunks(file2chunks, sample_files, attribute):
+    """
+  Filter chunks in file2chunks based on relevance to attribute/Keeps only chunks containing the attribute name as a keyword, removing those that do not.
+
+  Args:
+    file2chunks: Dict mapping files to lists of chunks.
+    sample_files: List of sample file names. 
+    attribute: Attribute name to filter for.
+
+  Returns:
+    filtered_file2chunks: Dict with filtered chunks for each file.
+
+  Filters the chunk lists in file2chunks to only include chunks 
+  relevant to the specified attribute. 
+
+  - Removes files with no matching chunks
+  - Keeps top 1-2 chunks per file based on keyword search
+
+  This focuses the chunks on the attribute of interest to improve
+  signal for synthesizing extraction functions.
+
+    Key points:
+
+    Purpose is to filter chunks by attribute
+    Inputs are original chunks, sample files, attribute name
+    Output is filtered chunk mapping
+    Briefly explains filtering process
+
+  Returns filtered mapping of files to filtered chunk lists.
+    """
     def get_attribute_parts(attribute):
         for char in ["/", "-", "(", ")", "[", "]", "{", "}", ":"]:
             attribute = attribute.replace(char, " ")
@@ -380,6 +423,7 @@ def filter_file2chunks(file2chunks, sample_files, attribute):
             starting_in_sample_chunks += len(chunks)
         cleaned_chunks = []
         for chunk in chunks:
+            # key line: check if attribute is in chunk and only append relevant chunk
             if attribute.lower() in chunk.lower():
                 cleaned_chunks.append(chunk)
         if len(cleaned_chunks) == 0:
@@ -403,8 +447,9 @@ def filter_file2chunks(file2chunks, sample_files, attribute):
         num_chunks = len(cleaned_chunks)
         num_chunks = min(num_chunks, 2)
 
+        # key line: only keep relevant clean chunks
         cleaned_chunks = cleaned_chunks[:num_chunks]
-        attribute_chunks[file] = cleaned_chunks
+        attribute_chunks[file] = cleaned_chunks  # key line
         if file in sample_files:
             ending_in_sample_chunks += len(attribute_chunks[file])
     file2chunks = attribute_chunks
