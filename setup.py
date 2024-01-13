@@ -4,6 +4,14 @@ _REQUIRED = [
     "tqdm",
     "openai",
     "manifest-ml",
+    "pandas",
+    "snorkel",
+    "cvxpy",
+    "bs4",
+    "snorkel-metal",
+    "tensorboardX",
+    "numpy == 1.20.3",
+    "networkx == 2.3"
 ]
 
 setup(

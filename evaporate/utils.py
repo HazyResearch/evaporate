@@ -8,6 +8,7 @@ from prompts import Step
 
 cur_idx = 0
 
+
 def apply_prompt(step : Step, max_toks = 50, do_print=False, manifest=None, overwrite_cache=False):
     global cur_idx 
     manifest_lst = manifest.copy()
@@ -88,8 +89,8 @@ def get_unique_file_types(files):
     return suffix2file, suffix2count
 
 
-def get_structure(dataset_name):
-    args = get_args(dataset_name)
+def get_structure(dataset_name, profiler_args):
+    args = get_args(profiler_args)
     if not os.path.exists(args.cache_dir):
         os.makedirs(args.cache_dir)
         
@@ -142,13 +143,14 @@ def get_manifest_sessions(MODELS, MODEL2URL=None, KEYS=[]):
             if not KEYS:
                 raise ValueError("You must provide a list of keys to use these models.")
             for key in KEYS:
+                print(key)
                 manifest, model_name = get_manifest_session(
                     client_name="openai", 
                     client_engine=model, 
                     client_connection=key,
                 )
                 manifest_sessions[model].append(manifest)
-        elif any(kwd in model for kwd in ["gpt-4"]):
+        elif any(kwd in model for kwd in ["gpt-4", "gpt-3.5"]):
             if not KEYS:
                 raise ValueError("You must provide a list of keys to use these models.")
             for key in KEYS:
@@ -159,6 +161,7 @@ def get_manifest_sessions(MODELS, MODEL2URL=None, KEYS=[]):
                 )
                 manifest_sessions[model].append(manifest)
         else:
+            print("using huggingface")
             manifest, model_name = get_manifest_session(
                 client_name="huggingface", 
                 client_engine=model, 
@@ -203,7 +206,7 @@ def get_manifest_session(
         **cache_params,
     )
     
-    params = manifest.client_pool.get_client().get_model_params()
+    params = manifest.client_pool.get_current_client().get_model_params()
     model_name = params["model_name"]
     if "engine" in params:
         model_name += f"_{params['engine']}"
@@ -240,14 +243,18 @@ def get_response(
             overwrite_cache=overwrite,
             return_response=True
         )
+        num_tokens = -1
+        try:
+            num_tokens = response_obj.get_usage_obj().usages[0].total_tokens
+        except:
+            num_tokens = 0
+            print("Fail to get total tokens used")
         response_obj = response_obj.get_json_response()
         response = response_obj["choices"][0]["text"]
         stop_token = "---"
         response = response.strip().split(stop_token)[0].strip() if stop_token else response.strip()
         log_prob = None
-        num_tokens = -1
-        if 'usage' in response_obj:
-            num_tokens = response_obj['usage'][0]['total_tokens']
+        
     if verbose:
         print("\n***Prompt***\n", prompt)
         print("\n***Response***\n", response)

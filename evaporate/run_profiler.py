@@ -9,19 +9,20 @@ import argparse
 from collections import defaultdict, Counter
 
 from utils import get_structure, get_manifest_sessions, get_file_attribute
-from profiler_utils import chunk_file, sample_scripts, set_profiler_args
+from profiler_utils import chunk_file, sample_scripts
 from schema_identification import identify_schema
-from profiler import run_profiler
+from profiler import run_profiler, get_file_attribute
 from evaluate_synthetic import main as evaluate_synthetic_main
+from configs import get_experiment_args
 
 
 random.seed(0)
-def get_data_lake_info(args, data_lake, DATA_DIR = "/data/evaporate"):
+def get_data_lake_info(args, data_lake):
     extractions_file = None
     
-    if data_lake == "fda_510ks":
+    if 1:
         DATA_DIR = args.data_dir
-        file_groups = os.listdir(DATA_DIR)
+        file_groups = os.listdir(args.data_dir)
         if not DATA_DIR.endswith("/"):
             DATA_DIR += "/"
         file_groups = [f"{DATA_DIR}{file_group}" for file_group in file_groups if not file_group.startswith(".")]
@@ -52,20 +53,19 @@ def chunk_files(file_group, parser, chunk_size, remove_tables, max_chunks_per_fi
 
 
 # chunking & preparing data
-def prepare_data(profiler_args, file_group, parser = "html"):
+def prepare_data(profiler_args, file_group, data_args, parser = "html"):
     data_lake = profiler_args.data_lake
     if profiler_args.body_only:
         body_only = profiler_args.body_only
         suffix = f"_bodyOnly{body_only}"
     else:
         suffix = ""
-
     # prepare the datalake: chunk all files
     manifest_sessions = get_manifest_sessions(profiler_args.MODELS, MODEL2URL=profiler_args.MODEL2URL, KEYS=profiler_args.KEYS)
-    if os.path.exists(f".cache/{data_lake}_size{len(file_group)}_chunkSize{profiler_args.chunk_size}_{suffix}_file2chunks.pkl"):
-        with open(f".cache/{data_lake}_size{len(file_group)}_chunkSize{profiler_args.chunk_size}_{suffix}_file2chunks.pkl", "rb") as f:
+    if os.path.exists(f"{data_args.cache_dir}/{data_lake}_size{len(file_group)}_chunkSize{profiler_args.chunk_size}_{suffix}_file2chunks.pkl"):
+        with open(f"{data_args.cache_dir}/{data_lake}_size{len(file_group)}_chunkSize{profiler_args.chunk_size}_{suffix}_file2chunks.pkl", "rb") as f:
             file2chunks = pickle.load(f)
-        with open(f".cache/{data_lake}_size{len(file_group)}_chunkSize{profiler_args.chunk_size}_{suffix}_file2contents.pkl", "rb") as f:
+        with open(f"{data_args.cache_dir}/{data_lake}_size{len(file_group)}_chunkSize{profiler_args.chunk_size}_{suffix}_file2contents.pkl", "rb") as f:
             file2contents = pickle.load(f)
     else:
         
@@ -77,11 +77,10 @@ def prepare_data(profiler_args, file_group, parser = "html"):
             profiler_args.max_chunks_per_file,
             profiler_args.body_only
         )
-        with open(f".cache/{data_lake}_size{len(file_group)}_chunkSize{profiler_args.chunk_size}_removeTables{profiler_args.remove_tables}{suffix}_file2chunks.pkl", "wb") as f:
+        with open(f"{data_args.cache_dir}/{data_lake}_size{len(file_group)}_chunkSize{profiler_args.chunk_size}_removeTables{profiler_args.remove_tables}{suffix}_file2chunks.pkl", "wb") as f:
             pickle.dump(file2chunks, f)
-        with open(f".cache/{data_lake}_size{len(file_group)}_chunkSize{profiler_args.chunk_size}_removeTables{profiler_args.remove_tables}{suffix}_file2contents.pkl", "wb") as f:
+        with open(f"{data_args.cache_dir}/{data_lake}_size{len(file_group)}_chunkSize{profiler_args.chunk_size}_removeTables{profiler_args.remove_tables}{suffix}_file2contents.pkl", "wb") as f:
             pickle.dump(file2contents, f)
-
     return file2chunks, file2contents, manifest_sessions
 
 
@@ -221,7 +220,94 @@ def measure_openie_results(
             num_extractions2results[num_extractions] = results
     return num_extractions2results
 
+def prerun_profiler(profiler_args):
+    file2chunks, file2contents, manifest_sessions = prepare_data(
+        profiler_args, profiler_args.full_file_groups, profiler_args, profiler_args.parser
+    )
+    extraction_manifest_sessions = {
+        k: v for k, v in manifest_sessions.items() if k in profiler_args.EXTRACTION_MODELS
+    }
+    gold_attributes = get_gold_metadata(profiler_args)
+    data_dict = {
+        "file2chunks": file2chunks,
+        "file2contents": file2contents,
+        "extraction_manifest_sessions": extraction_manifest_sessions,
+        "gold_attributes": gold_attributes
+    }
+    return data_dict
 
+def identify_attributes(profiler_args, data_dict, evaluation = False):
+    file2chunks = data_dict["file2chunks"]
+    file2contents = data_dict["file2contents"]
+    extraction_manifest_sessions = data_dict["extraction_manifest_sessions"]
+    sample_files = sample_scripts(
+        profiler_args.file_groups,  
+        train_size=profiler_args.train_size,
+    )
+    t0 = time.time()
+    num_toks = identify_schema(
+        profiler_args.run_string,
+        profiler_args, 
+        file2chunks, 
+        file2contents, 
+        sample_files, 
+        extraction_manifest_sessions, 
+        profiler_args.data_lake, 
+        profiler_args
+    )
+    t1 = time.time()
+    with open(f"{profiler_args.generative_index_path}/{profiler_args.run_string}_identified_schema.json") as f:
+        most_common_fields = json.load(f)
+    with open(f"{profiler_args.generative_index_path}/{profiler_args.run_string}_order_of_addition.json") as f:
+        order_of_addition = json.load(f)
+        order = {item: (len(order_of_addition) - i) for i, item in enumerate(order_of_addition)}
+    ctr =  Counter(most_common_fields)
+    pred_metadata = sorted(
+        ctr.most_common(profiler_args.num_attr_to_cascade), 
+        key=lambda x: (x[1], order[x[0]]), 
+        reverse=True
+    )
+    attributes = [item[0].lower() for item in pred_metadata]
+    if evaluation :
+        evaluation_result = evaluate_synthetic_main(
+            profiler_args.run_string,
+            profiler_args, 
+            profiler_args, 
+            profiler_args.data_lake, 
+            stage='schema_id'
+        )
+    else:
+        evaluation_result = None
+    return attributes, t1-t0, num_toks, evaluation_result
+
+def get_attribute_function(profiler_args, data_dict, attribute):
+    sample_files = sample_scripts(
+        profiler_args.file_groups,  
+        train_size=profiler_args.train_size,
+    )
+    t0 = time.time()
+    num_toks, success = run_profiler(
+        profiler_args.run_string,
+        profiler_args, 
+        data_dict["file2chunks"], 
+        data_dict["file2contents"], 
+        sample_files,
+        profiler_args.full_file_groups,
+        data_dict["extraction_manifest_sessions"], 
+        attribute, 
+        profiler_args
+    ) 
+    t1 = time.time()
+    try:
+        file_attribute = get_file_attribute(attribute)
+        with open(f"{profiler_args.generative_index_path}/{profiler_args.run_string}_{file_attribute}_functions.json") as f:
+            function_dictionary = json.load(f)
+        with open(f"{profiler_args.generative_index_path}/{profiler_args.run_string}_{file_attribute}_top_k_keys.json") as f:
+            selected_keys = json.load(f)
+    except:
+        selected_keys = None
+        function_dictionary = None
+    return function_dictionary, selected_keys, t1-t0, num_toks
 def run_experiment(profiler_args):  
     do_end_to_end = profiler_args.do_end_to_end
     num_attr_to_cascade = profiler_args.num_attr_to_cascade
@@ -231,11 +317,10 @@ def run_experiment(profiler_args):
     print(f"Data lake")
     today = datetime.datetime.today().strftime("%m%d%Y") 
     
-    setattr(profiler_args, 'chunk_size', 3000)
-    _, _, _, _, args = get_structure(data_lake)
+    _, _, _, _, args = get_structure(data_lake, profiler_args)
     file_groups, extractions_file, parser, full_file_groups = get_data_lake_info(args, data_lake)
     file2chunks, file2contents, manifest_sessions = prepare_data(
-        profiler_args, full_file_groups, parser
+        profiler_args, full_file_groups, args, parser
     )
     extraction_manifest_sessions = {
         k: v for k, v in manifest_sessions.items() if k in profiler_args.EXTRACTION_MODELS
@@ -369,90 +454,29 @@ def run_experiment(profiler_args):
         results_by_train_size[train_size]['total_tokens_prompted'] = total_tokens_prompted
         results_by_train_size[train_size]['num_total_files'] = len(full_file_groups)
         results_by_train_size[train_size]['num_sample_files'] = len(sample_files)
-        if not os.path.exists("results_dumps"):
-            os.mkdir("results_dumps")
+        result_path_dir = os.path.join(profiler_args.base_data_dir, "results_dumps")
+        if not os.path.exists(result_path_dir):
+            os.mkdir(result_path_dir)
         print(run_string)
-        with open(f"results_dumps/{run_string}_results_by_train_size.pkl", "wb") as f:
+        with open(f"{result_path_dir}/{run_string}_results_by_train_size.pkl", "wb") as f:
             pickle.dump(results_by_train_size, f)
             print(f"Saved!")
 
         print(f"Total tokens prompted: {total_tokens_prompted}")
 
 
-def get_experiment_args():
-    parser = argparse.ArgumentParser()
 
-    parser.add_argument(
-        "--data_lake", 
-        type=str,
-        help="Name of the data lake to operate over. Must be in configs.py"
-    )
-
-    parser.add_argument(
-        "--do_end_to_end", 
-        type=bool,
-        default=True,
-        help="True for OpenIE, False for ClosedIE"
-    )
-
-    parser.add_argument(
-        "--num_attr_to_cascade", 
-        type=int,
-        default=35,
-        help="Number of attributes to generate functions for"
-    )
-
-    parser.add_argument(
-        "--num_top_k_scripts",
-        type=int,
-        default=10,
-        help="Number of generated functions to combine over for each attribute"
-    )
-
-    parser.add_argument(
-        "--train_size",
-        type=int,
-        default=10,
-        help="Number of files to prompt on"
-    )
-
-    parser.add_argument(
-        "--combiner_mode",
-        type=str,
-        default='ws',
-        help="Combiner mode for combining the outputs of the generated functions",
-        choices=['ws', 'mv', 'top_k']
-    )
-
-    parser.add_argument(
-        "--use_dynamic_backoff",
-        type=bool,
-        default=True,
-        help="Whether to generate functions or do Evaporate-Direct",
-    )
-
-    parser.add_argument(
-        "--KEYS",
-        type=str,
-        default=[],
-        help="List of keys to use the model api",
-        nargs='*'
-    )
-
-    experiment = parser.parse_args()
-    return experiment
 
 
 def main():
-    experiment_args = get_experiment_args()
-    profiler_args = {}
-    profiler_args = set_profiler_args(profiler_args)
-
-    model_dict = {
-        'MODELS': ["text-davinci-003"],
-        'EXTRACTION_MODELS':  ["text-davinci-003"],  
-        'GOLD_KEY': "text-davinci-003",
-    }
+    #todo: make into two types of args: running_args and data_args, set by the user
+    profiler_args = get_experiment_args()
+    
+    # model_dict = {
+    #     'MODELS': ["text-davinci-003"],
+    #     'EXTRACTION_MODELS':  ["text-davinci-003"],  
+    #     'GOLD_KEY': "text-davinci-003",
+    # }
     # Example of how to use a locally-hosted FM
     # model_dict = {
     #     'MODELS': [" EleutherAI/gpt-j-6B"],
@@ -463,12 +487,6 @@ def main():
     #     },
     # }
             
-    for k, v in model_dict.items():
-        setattr(profiler_args, k, v)
-
-    for k in vars(experiment_args):
-        setattr(profiler_args, k,  getattr(experiment_args, k))
-
     run_experiment(profiler_args)
 
 
