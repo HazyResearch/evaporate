@@ -147,7 +147,7 @@ def clean_comparison(extraction, attribute='', exact_match=False):
     return extraction
 
 
-def evaluate_extraction_quality(run_string, args, gold_extractions_file, gold_attributes=None):
+def evaluate_extraction_quality(run_string, args, gold_extractions_file, gold_extractions_file_dir, gold_attributes=None):
     all_attribute_f1 = 0
     all_attribute_total = 0
     total_runtime_overall_attributes = 0
@@ -157,11 +157,14 @@ def evaluate_extraction_quality(run_string, args, gold_extractions_file, gold_at
     # load gold extractions file
     try:
         with open(gold_extractions_file) as f:
-            gold_extractions = json.load(f) 
+            gold_extractions_tmp = json.load(f)
     except:
         with open(gold_extractions_file, "rb") as f:
-            gold_extractions = pickle.load(f)
-
+            gold_extractions_tmp = pickle.load(f)
+    gold_extractions = {}
+    for file, extractions in gold_extractions_tmp.items():
+        gold_extractions[os.path.join(gold_extractions_file_dir, file.split('/')[-1])] = extractions
+    
     for attribute in gold_attributes:
         attribute = attribute.lower()
         # load predicted extractions
@@ -182,7 +185,6 @@ def evaluate_extraction_quality(run_string, args, gold_extractions_file, gold_at
             function_dictionary = {}
             selected_keys = []
             pass
-
         total_runtime = 0
         for key in selected_keys:
             if key in function_dictionary: 
@@ -530,8 +532,9 @@ def main(
     else:
         extraction_results = evaluate_extraction_quality(
             run_string,
-            args, 
+            args,       
             gold_extractions_file,
+            profiler_args.data_dir,
             gold_attributes=gold_attributes
         )
         overall_results["extraction"] = extraction_results
