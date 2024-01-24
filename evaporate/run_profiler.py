@@ -224,14 +224,14 @@ def prerun_profiler(profiler_args):
     file2chunks, file2contents, manifest_sessions = prepare_data(
         profiler_args, profiler_args.full_file_groups, profiler_args, profiler_args.parser
     )
-    extraction_manifest_sessions = {
-        k: v for k, v in manifest_sessions.items() if k in profiler_args.EXTRACTION_MODELS
+    manifest_sessions = {
+        k: v for k, v in manifest_sessions.items() if k in profiler_args.MODELS
     }
     gold_attributes = get_gold_metadata(profiler_args)
     data_dict = {
         "file2chunks": file2chunks,
         "file2contents": file2contents,
-        "extraction_manifest_sessions": extraction_manifest_sessions,
+        "manifest_sessions": manifest_sessions,
         "gold_attributes": gold_attributes
     }
     return data_dict
@@ -239,7 +239,7 @@ def prerun_profiler(profiler_args):
 def identify_attributes(profiler_args, data_dict, evaluation = False):
     file2chunks = data_dict["file2chunks"]
     file2contents = data_dict["file2contents"]
-    extraction_manifest_sessions = data_dict["extraction_manifest_sessions"]
+    manifest_sessions = data_dict["manifest_sessions"]
     sample_files = sample_scripts(
         profiler_args.file_groups,  
         train_size=profiler_args.train_size,
@@ -251,7 +251,7 @@ def identify_attributes(profiler_args, data_dict, evaluation = False):
         file2chunks, 
         file2contents, 
         sample_files, 
-        extraction_manifest_sessions, 
+        manifest_sessions, 
         profiler_args.data_lake, 
         profiler_args
     )
@@ -293,7 +293,7 @@ def get_attribute_function(profiler_args, data_dict, attribute):
         data_dict["file2contents"], 
         sample_files,
         profiler_args.full_file_groups,
-        data_dict["extraction_manifest_sessions"], 
+        data_dict["manifest_sessions"], 
         attribute, 
         profiler_args
     ) 
@@ -322,8 +322,8 @@ def run_experiment(profiler_args):
     file2chunks, file2contents, manifest_sessions = prepare_data(
         profiler_args, full_file_groups, args, parser
     )
-    extraction_manifest_sessions = {
-        k: v for k, v in manifest_sessions.items() if k in profiler_args.EXTRACTION_MODELS
+    manifest_sessions = {
+        k: v for k, v in manifest_sessions.items() if k in profiler_args.MODELS
     }
     gold_attributes = get_gold_metadata(args)
 
@@ -357,7 +357,7 @@ def run_experiment(profiler_args):
                 file2chunks, 
                 file2contents, 
                 sample_files, 
-                extraction_manifest_sessions, 
+                manifest_sessions, 
                 data_lake, 
                 profiler_args
             )
@@ -404,7 +404,7 @@ def run_experiment(profiler_args):
                     file2contents, 
                     sample_files, 
                     full_file_groups,
-                    extraction_manifest_sessions, 
+                    manifest_sessions, 
                     attribute, 
                     profiler_args
                 ) 
