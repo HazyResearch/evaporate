@@ -29,6 +29,7 @@ from evaluate_profiler import get_topk_scripts_per_field, evaluate
 from profiler_utils import filter_file2chunks, check_vs_train_extractions, clean_function_predictions
 
 import sys
+sys.path.append(f"./evaporate/weak_supervision/")
 sys.path.append(f"./weak_supervision/")
 from run_ws import run_ws
 
@@ -624,7 +625,7 @@ def run_profiler(run_string, args, file2chunks, file2contents, sample_files, gro
         use_qa_model=profiler_args.use_qa_model,
         overwrite_cache=profiler_args.overwrite_cache,
     )
-    print(all_extractions[profiler_args.GOLD_KEY])
+    
     total_tokens_prompted += num_toks
     if not all_extractions:
         return total_tokens_prompted, 0
