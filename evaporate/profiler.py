@@ -29,6 +29,7 @@ from evaluate_profiler import get_topk_scripts_per_field, evaluate
 from profiler_utils import filter_file2chunks, check_vs_train_extractions, clean_function_predictions
 
 import sys
+sys.path.append(f"./evaporate/weak_supervision/")
 sys.path.append(f"./weak_supervision/")
 from run_ws import run_ws
 
@@ -462,7 +463,12 @@ def get_model_extractions(
     overwrite_cache=False,
     collecting_preds=False,
 ):
-
+    if(type(manifest_session) == dict and manifest_session['__name'] == "gold_extraction_file"):
+        extractions = {}
+        for file in sample_files:
+            extractions[file] = manifest_session[attribute][file]
+        return extractions, 0, False
+        
     num_errors = 0
     total_prompts = 0
     total_tokens_prompted = 0
@@ -545,7 +551,7 @@ def get_all_extractions(
         sample_files,
         attribute, 
         manifest_sessions,
-        MODELS,
+        extraction_MODELS,
         GOLD_KEY,
         args,
         use_qa_model=False,
@@ -554,46 +560,48 @@ def get_all_extractions(
     total_tokens_prompted = 0
 
     all_extractions = {}
-    for model in MODELS:
-        manifest_session = manifest_sessions[model]
-        extractions, num_toks, errored_out = get_model_extractions(
-            file2chunks, 
-            sample_files, 
-            attribute,  
-            manifest_session,
-            model,
-            overwrite_cache=overwrite_cache,
-            collecting_preds=True,
-        )
 
-        total_tokens_prompted += num_toks
-        if not errored_out:
-            all_extractions[model] = extractions
-        else:
-            print(f"Not applying {model} extractions")
-            return 0, 0, total_tokens_prompted
-
+    #Applying GOlD_KEY model for direct extraction
     manifest_session = manifest_sessions[GOLD_KEY]
-    functions, function_promptsource, num_toks = get_functions(
+    extractions, num_toks, errored_out = get_model_extractions(
         file2chunks, 
         sample_files, 
-        all_extractions[GOLD_KEY],
-        attribute, 
+        attribute,  
         manifest_session,
+        GOLD_KEY,
         overwrite_cache=overwrite_cache,
+        collecting_preds=True,
     )
     total_tokens_prompted += num_toks
+    if not errored_out:
+        all_extractions[GOLD_KEY] = extractions
+    else:
+        print(f"Not applying {model} extractions")
+        return 0, 0, total_tokens_prompted
 
+    #Apply extraction models to generate functions
     function_dictionary = defaultdict(dict)
-    for fn_key, fn in functions.items():
-        all_extractions[fn_key], num_function_errors = apply_final_profiling_functions(
-            file2contents, 
-            sample_files,
-            fn,
-            attribute,
+    for model in extraction_MODELS:
+        manifest_session = manifest_sessions[model]
+        functions, function_promptsource, num_toks = get_functions(
+            file2chunks, 
+            sample_files, 
+            all_extractions[GOLD_KEY],
+            attribute, 
+            manifest_session,
+            overwrite_cache=overwrite_cache,
         )
-        function_dictionary[fn_key]['function'] = fn
-        function_dictionary[fn_key]['promptsource'] = function_promptsource[fn_key]
+        total_tokens_prompted += num_toks
+        for fn_key, fn in functions.items():
+            all_extractions[fn_key], num_function_errors = apply_final_profiling_functions(
+                file2contents, 
+                sample_files,
+                fn,
+                attribute,
+            )
+            function_dictionary[fn_key]['function'] = fn
+            function_dictionary[fn_key]['promptsource'] = function_promptsource[fn_key]
+            function_dictionary[fn_key]['extract_model'] = model
     return all_extractions, function_dictionary, total_tokens_prompted
 
 
@@ -621,6 +629,7 @@ def run_profiler(run_string, args, file2chunks, file2contents, sample_files, gro
         use_qa_model=profiler_args.use_qa_model,
         overwrite_cache=profiler_args.overwrite_cache,
     )
+    
     total_tokens_prompted += num_toks
     if not all_extractions:
         return total_tokens_prompted, 0

@@ -143,7 +143,6 @@ def get_manifest_sessions(MODELS, MODEL2URL=None, KEYS=[]):
             if not KEYS:
                 raise ValueError("You must provide a list of keys to use these models.")
             for key in KEYS:
-                print(key)
                 manifest, model_name = get_manifest_session(
                     client_name="openai", 
                     client_engine=model, 
