@@ -463,7 +463,12 @@ def get_model_extractions(
     overwrite_cache=False,
     collecting_preds=False,
 ):
-
+    if(type(manifest_session) == dict and manifest_session['__name'] == "gold_extraction_file"):
+        extractions = {}
+        for file in sample_files:
+            extractions[file] = manifest_session[attribute][file]
+        return extractions, 0, False
+        
     num_errors = 0
     total_prompts = 0
     total_tokens_prompted = 0
@@ -567,7 +572,6 @@ def get_all_extractions(
         overwrite_cache=overwrite_cache,
         collecting_preds=True,
     )
-
     total_tokens_prompted += num_toks
     if not errored_out:
         all_extractions[GOLD_KEY] = extractions

@@ -228,6 +228,22 @@ def prerun_profiler(profiler_args):
         k: v for k, v in manifest_sessions.items() if k in profiler_args.MODELS
     }
     gold_attributes = get_gold_metadata(profiler_args)
+    if(profiler_args.GOLD_KEY == 'gold_extraction_file'):
+        try:
+            with open(profiler_args.gold_extractions_file) as f:
+                gold_extractions_tmp = json.load(f)
+        except:
+            with open(profiler_args.gold_extractions_file, "rb") as f:
+                gold_extractions_tmp = pickle.load(f)
+        gold_extractions = {}
+        for file, extractions in gold_extractions_tmp.items():
+            gold_extractions[os.path.join(profiler_args.data_dir, file.split('/')[-1])] = extractions
+        manifest_sessions[profiler_args.GOLD_KEY] = {}
+        manifest_sessions[profiler_args.GOLD_KEY]['__name'] = 'gold_extraction_file'
+        for attribute in gold_attributes:
+            manifest_sessions[profiler_args.GOLD_KEY][attribute] = {}
+            for file in profiler_args.file_groups:
+                manifest_sessions[profiler_args.GOLD_KEY][attribute][file] = gold_extractions[file][attribute]
     data_dict = {
         "file2chunks": file2chunks,
         "file2contents": file2contents,
