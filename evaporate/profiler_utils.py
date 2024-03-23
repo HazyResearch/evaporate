@@ -458,7 +458,7 @@ def clean_function_predictions(extraction, attribute=None):
         return extraction
 
 
-def check_vs_train_extractions(train_extractions, final_extractions, gold_key):
+def check_vs_train_extractions(train_extractions, final_extractions, gold_key, attribute = None):
         clean_final_extractions = {}
 
         gold_values = train_extractions[gold_key]
@@ -466,6 +466,8 @@ def check_vs_train_extractions(train_extractions, final_extractions, gold_key):
         start_toks = []
         end_toks = []
         for file, gold in gold_values.items():
+            if type(gold) == dict:
+                gold = gold[attribute]
             if type(gold) == list:
                 if gold and type(gold[0]) == list:
                     gold = [g[0] for g in gold]

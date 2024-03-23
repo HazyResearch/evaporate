@@ -573,6 +573,10 @@ def set_profiler_args(information):
     setattr(args, "extractions_file", extractions_file)
     setattr(args, "parser", parser)
     setattr(args, "full_file_groups", full_file_groups)
+    if("train_size" not in args):
+        args.train_size = 10
+    if "use_dynamic_backoff" not in args:
+        args.use_dynamic_backoff = True
     setattr(args, "run_string", get_run_string(args.data_lake, today, args.full_file_groups, args, args.do_end_to_end, args.train_size, args.use_dynamic_backoff, args.EXTRACTION_MODELS))
     if(args.generative_index_path == ""):
         args.generative_index_path = os.path.join(args.base_data_dir, "generative_indexes/", args.data_lake)
