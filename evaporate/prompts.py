@@ -69,6 +69,7 @@ Question: Return the full "{{attribute:}}" span of this sample if it exists, oth
 Answer:""",
 ]
 
+
 METADATA_EXTRACTION_WITH_LM_ZERO_SHOT = [
 f"""Sample text:
 
@@ -93,6 +94,34 @@ Here is a file sample:
 {{chunk:}}
 
 Question: Return the full "{{attribute:}}" from this sample if it exists, otherwise output [].
+Answer:""",
+]
+
+METADATA_EXTRACTION_WITH_LM_CONTEXT = [
+f"""Here is a file sample:
+
+A. 510(k) Number: 
+k143467 
+
+Question: Return the full "510(k) Number" from this sample if it exists and the context around it, otherwise output []. 
+Answer: [510(k) Number: k143467]
+
+----
+
+Here is a file sample:
+
+The iphone price increases a lot this there. Each iphone's price is as high as 1000$.
+
+Question: Return the full "price" from this sample if it exists and the context around it, otherwise output []. 
+Answer: [Each iphone's price is as high as 1000$]
+
+----
+
+Here is a file sample:
+
+{{chunk:}}
+
+Question: Return the full "{{attribute:}}" from this sample if it exists and the context around it, otherwise output [].
 Answer:""",
 ]
 
@@ -149,6 +178,28 @@ Examples:
 Question: Which example is a "{{attribute:}}"?
 Answer:"""
 ]
+
+
+PICK_VALUE_CONTEXT = [
+f"""Here are file samples:
+
+-The purpose for submission is to obtain substantial equivalence determination for the illumigene HSV 1&2 DNA Amplification Assay.
+-The purpose for submission of this document is not specified in the provided sample.
+-The purpose for submission of this file is not specified.
+
+Question: Extract "the purpose for submission" from the right sample , otherwise output []. 
+Answer: to obtain substantial equivalence determination for the illumigene HSV 1&2 DNA Amplification Assay
+
+----
+
+Here are file samples:
+
+{{pred_str:}}
+
+Question: Return the full "{{attribute:}}" from this sample if it exists, otherwise output [].
+Answer:""",
+]
+
 
 
 ############################## PROMPTS TO GENERATE FUNCTIONS THAT PARSE FOR A SPECIFIC FIELD ##############################

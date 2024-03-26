@@ -3,11 +3,35 @@ import json
 from collections import Counter, defaultdict
 
 from manifest import Manifest
-from configs import get_args
-from prompts import Step
+from evaporate.configs import get_args
+from evaporate.prompts import Step
+from openai import OpenAI
 
 cur_idx = 0
+TOGETHER_API_KEY = os.environ.get("TOGETHER_API_KEY")
+#If using together AI, you will need to set the TOGETHER_API_KEY to your API key
 
+
+def together_call(prompt, model, streaming = False, max_tokens = 1024):
+    client = OpenAI(
+        api_key=TOGETHER_API_KEY,
+        base_url='https://api.together.xyz',
+
+    )
+    messages = [{
+        "role": "system",
+        "content": "You are an AI assistant",
+    }, {
+        "role": "user",
+        "content": prompt,
+    }]
+    chat_completion = client.chat.completions.create(messages=messages,
+                                                    model=model,
+                                                    max_tokens=max_tokens,
+                                                    #response_format={ "type": "json_object" },
+                                                    stream=streaming)
+    response = chat_completion.choices[0].message.content
+    return response
 
 def apply_prompt(step : Step, max_toks = 50, do_print=False, manifest=None, overwrite_cache=False):
     global cur_idx 
@@ -160,12 +184,17 @@ def get_manifest_sessions(MODELS, MODEL2URL=None, KEYS=[]):
                 )
                 manifest_sessions[model].append(manifest)
         else:
-            print("using huggingface")
-            manifest, model_name = get_manifest_session(
-                client_name="huggingface", 
-                client_engine=model, 
-                client_connection=MODEL2URL[model],
-            )
+            if(model not in MODEL2URL):
+                manifest = {}
+                manifest["__name"] = model
+                print("using together AI")
+            else:
+                print("using huggingface")
+                manifest, model_name = get_manifest_session(
+                    client_name="huggingface", 
+                    client_engine=model, 
+                    client_connection=MODEL2URL[model],
+                )
             manifest_sessions[model].append(manifest)
     return manifest_sessions
 
@@ -224,36 +253,43 @@ def get_response(
     prompt = prompt.strip()
     if gold_choices:
         gold_choices = [" " + g.strip() for g in gold_choices]
-        response_obj = manifest.run(
-            prompt, 
-            gold_choices=gold_choices, 
-            overwrite_cache=overwrite, 
-            return_response=True,
-        )
-        response_obj = response_obj.get_json_response()["choices"][0]
-        log_prob = response_obj["text_logprob"]
-        response = response_obj["text"]
-        num_tokens = response_obj['usage']['total_tokens']
-    else:
-        response_obj = manifest.run(
-            prompt,
-            max_tokens=max_toks,
-            stop_token=stop_token,
-            overwrite_cache=overwrite,
-            return_response=True
-        )
-        num_tokens = -1
-        try:
-            num_tokens = response_obj.get_usage_obj().usages[0].total_tokens
-        except:
+        if type(manifest) == dict and manifest["__name"] != "openai":
+            response = together_call(prompt, manifest["__name"])
             num_tokens = 0
-            print("Fail to get total tokens used")
-        response_obj = response_obj.get_json_response()
-        response = response_obj["choices"][0]["text"]
+        else:
+            response_obj = manifest.run(
+                prompt, 
+                gold_choices=gold_choices, 
+                overwrite_cache=overwrite, 
+                return_response=True,
+            )
+            response_obj = response_obj.get_json_response()["choices"][0]
+            log_prob = response_obj["text_logprob"]
+            response = response_obj["text"]
+            num_tokens = response_obj['usage']['total_tokens']
+    else:
+        if type(manifest) == dict and manifest["__name"] != "openai":
+            response = together_call(prompt, manifest["__name"])
+            num_tokens = 0
+        else:
+            response_obj = manifest.run(
+                prompt,
+                max_tokens=max_toks,
+                stop_token=stop_token,
+                overwrite_cache=overwrite,
+                return_response=True
+            )
+            num_tokens = -1
+            try:
+                num_tokens = response_obj.get_usage_obj().usages[0].total_tokens
+            except:
+                num_tokens = 0
+                print("Fail to get total tokens used")
+            response_obj = response_obj.get_json_response()
+            response = response_obj["choices"][0]["text"]
         stop_token = "---"
         response = response.strip().split(stop_token)[0].strip() if stop_token else response.strip()
         log_prob = None
-        
     if verbose:
         print("\n***Prompt***\n", prompt)
         print("\n***Response***\n", response)

@@ -10,6 +10,10 @@ def text_f1(preds=[], golds=[], attribute= ''):
     total_prec = 0
     f1s = []
     for pred, gold in zip(preds, golds):
+        if isinstance(pred, list):
+            pred = ' '.join(pred)  # Example way to convert list to string
+        if isinstance(gold, list):
+            gold = ' '.join(gold)  # Example way to convert list to string
         pred_toks = pred.split()
         gold_toks = gold.split()
         common = Counter(pred_toks) & Counter(gold_toks)
@@ -32,3 +36,11 @@ def text_f1(preds=[], golds=[], attribute= ''):
     f1_avg = total_f1 / len(golds)
     f1_median = np.percentile(f1s, 50)     
     return f1_avg, f1_median
+
+def get_file_attribute(attribute):
+    attribute = attribute.lower()
+    attribute = attribute.replace("/", "_").replace(")", "").replace("-", "_")
+    attribute = attribute.replace("(", "").replace(" ", "_")
+    if len(attribute) > 30:
+        attribute = attribute[:30]
+    return attribute

@@ -8,12 +8,12 @@ import pickle
 import argparse
 from collections import defaultdict, Counter
 
-from utils import get_structure, get_manifest_sessions, get_file_attribute
-from profiler_utils import chunk_file, sample_scripts
-from schema_identification import identify_schema
-from profiler import run_profiler, get_file_attribute
-from evaluate_synthetic import main as evaluate_synthetic_main
-from configs import get_experiment_args
+from evaporate.utils import get_structure, get_manifest_sessions, get_file_attribute
+from evaporate.profiler_utils import chunk_file, sample_scripts
+from evaporate.schema_identification import identify_schema
+from evaporate.profiler import run_profiler, get_file_attribute
+from evaporate.evaluate_synthetic import main as evaluate_synthetic_main
+from evaporate.configs import get_experiment_args
 
 
 random.seed(0)
@@ -68,7 +68,6 @@ def prepare_data(profiler_args, file_group, data_args, parser = "html"):
         with open(f"{data_args.cache_dir}/{data_lake}_size{len(file_group)}_chunkSize{profiler_args.chunk_size}_{suffix}_file2contents.pkl", "rb") as f:
             file2contents = pickle.load(f)
     else:
-        
         file2chunks, file2contents = chunk_files(
             file_group, 
             parser,
@@ -77,6 +76,8 @@ def prepare_data(profiler_args, file_group, data_args, parser = "html"):
             profiler_args.max_chunks_per_file,
             profiler_args.body_only
         )
+        if not os.path.exists(data_args.cache_dir):
+            os.mkdir(data_args.cache_dir)
         with open(f"{data_args.cache_dir}/{data_lake}_size{len(file_group)}_chunkSize{profiler_args.chunk_size}_removeTables{profiler_args.remove_tables}{suffix}_file2chunks.pkl", "wb") as f:
             pickle.dump(file2chunks, f)
         with open(f"{data_args.cache_dir}/{data_lake}_size{len(file_group)}_chunkSize{profiler_args.chunk_size}_removeTables{profiler_args.remove_tables}{suffix}_file2contents.pkl", "wb") as f:
@@ -228,27 +229,33 @@ def prerun_profiler(profiler_args):
         k: v for k, v in manifest_sessions.items() if k in profiler_args.MODELS
     }
     gold_attributes = get_gold_metadata(profiler_args)
-    if(profiler_args.GOLD_KEY == 'gold_extraction_file'):
-        try:
-            with open(profiler_args.gold_extractions_file) as f:
-                gold_extractions_tmp = json.load(f)
-        except:
-            with open(profiler_args.gold_extractions_file, "rb") as f:
-                gold_extractions_tmp = pickle.load(f)
-        gold_extractions = {}
-        for file, extractions in gold_extractions_tmp.items():
-            gold_extractions[os.path.join(profiler_args.data_dir, file.split('/')[-1])] = extractions
-        manifest_sessions[profiler_args.GOLD_KEY] = {}
-        manifest_sessions[profiler_args.GOLD_KEY]['__name'] = 'gold_extraction_file'
-        for attribute in gold_attributes:
-            manifest_sessions[profiler_args.GOLD_KEY][attribute] = {}
-            for file in profiler_args.file_groups:
-                manifest_sessions[profiler_args.GOLD_KEY][attribute][file] = gold_extractions[file][attribute]
+    try:
+        with open(profiler_args.gold_extractions_file) as f:
+            gold_extractions_tmp = json.load(f)
+    except:
+        with open(profiler_args.gold_extractions_file, "rb") as f:
+            gold_extractions_tmp = pickle.load(f)
+    gold_extractions = {}
+    for file, extractions in gold_extractions_tmp.items():
+        gold_extractions[os.path.join(profiler_args.data_dir, file.split('/')[-1])] = extractions
+    manifest_sessions[profiler_args.GOLD_KEY] = {}
+    manifest_sessions[profiler_args.GOLD_KEY]['__name'] = 'gold_extraction_file'
+    for attribute in gold_attributes:
+        manifest_sessions[profiler_args.GOLD_KEY][attribute] = {}
+        for file in profiler_args.file_groups:
+            manifest_sessions[profiler_args.GOLD_KEY][attribute][file] = gold_extractions[file][attribute]
+    
+    sample_files = sample_scripts(
+        profiler_args.file_groups,  
+        train_size=profiler_args.train_size,
+    )            
     data_dict = {
         "file2chunks": file2chunks,
         "file2contents": file2contents,
         "manifest_sessions": manifest_sessions,
-        "gold_attributes": gold_attributes
+        "gold_attributes": gold_attributes,
+        "sample_files" : sample_files,
+        "gold_extractions": gold_extractions
     }
     return data_dict
 

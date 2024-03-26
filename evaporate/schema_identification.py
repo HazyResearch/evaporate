@@ -6,9 +6,9 @@ from tqdm import tqdm
 from collections import Counter, defaultdict
 from typing import List, Dict, Tuple, Set
 
-from prompts import Step, SCHEMA_ID_PROMPTS
-from utils import apply_prompt
-from profiler_utils import clean_metadata
+from evaporate.prompts import Step, SCHEMA_ID_PROMPTS
+from evaporate.utils import apply_prompt
+from evaporate.profiler_utils import clean_metadata
 
 
 def directly_extract_from_chunks_w_value(

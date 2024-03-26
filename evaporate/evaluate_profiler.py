@@ -1,7 +1,7 @@
 from collections import defaultdict, Counter
 import numpy as np
-from prompts import (PICK_VALUE, Step,)
-from utils import apply_prompt
+from evaporate.prompts import (PICK_VALUE_CONTEXT, Step,)
+from evaporate.utils import apply_prompt
 
 
 def clean_comparison(responses, field):
@@ -57,7 +57,7 @@ def pick_a_gold_label(golds, attribute="", manifest_session=None, overwrite_cach
 
     pred_str = "- " + "\n- ".join(golds)
 
-    prompt_template = PICK_VALUE[0]
+    prompt_template = PICK_VALUE_CONTEXT[0]
     prompt = prompt_template.format(pred_str=pred_str, attribute=attribute)
     try:
         check, num_toks = apply_prompt(
@@ -186,7 +186,6 @@ def evaluate(
             total_tokens_prompted += num_toks
         gold_metadata = clean_comparison(gold_metadata, field)
         cleaned_gold_metadata[filepath] = gold_metadata
-
     # handle function preds on D_eval
     for i, (key, file2metadata) in enumerate(all_extractions.items()):
         if key == gold_key:
@@ -199,18 +198,18 @@ def evaluate(
             key2preds[key].append(pred_metadata)
 
     # Handling abstensions
-    num_extractions = 0
-    for golds in key2golds[key]:
-        if golds and not any(golds.lower() == wd for wd in ['none']):
-            num_extractions += 1
-    extraction_fraction = float(num_extractions) / float(len(key2golds[key]))
-    if combiner_mode == "top_k":
-        # Don't use the extraction fraction in the naive setting for scoring
-        extraction_fraction = 0.0
-    print(f"Extraction fraction: {extraction_fraction}")
 
     metrics = {}
     for key, golds in key2golds.items():
+        num_extractions = 0
+        for golds in key2golds[key]:
+            if golds and not any(golds.lower() == wd for wd in ['none']):
+                num_extractions += 1
+        extraction_fraction = float(num_extractions) / float(len(key2golds[key]))
+        if combiner_mode == "top_k":
+            # Don't use the extraction fraction in the naive setting for scoring
+            extraction_fraction = 0.0
+        #print(f"Extraction fraction: {extraction_fraction}")
         preds = key2preds[key]
         f1, f1_med = text_f1(
             preds, golds, 
@@ -298,9 +297,9 @@ def get_topk_scripts_per_field(
         return [top_k_scripts[0]]
 
     # print results
-    print(f"Top {k} scripts:")
-    for script in final_set:
-        print(f"- {script}; Score: {script2metrics[script]}")
+    # print(f"Top {k} scripts:")
+    # for script in final_set:
+    #     print(f"- {script}; Score: {script2metrics[script]}")
     print(f"Best script overall: {best_script}; Score: {script2metrics[best_script]}")
     return final_set
 

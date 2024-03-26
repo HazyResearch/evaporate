@@ -7,12 +7,11 @@ import random
 import cvxpy as cp
 import scipy as sp
 from tqdm import tqdm
-from methods import Aggregator
+from evaporate.weak_supervision.methods import Aggregator
 from metal.label_model import LabelModel
 from collections import defaultdict, Counter
 
-sys.path.append("../")
-from evaluate_synthetic import clean_comparison
+from evaporate.evaluate_synthetic import clean_comparison
 
 
 def get_data(

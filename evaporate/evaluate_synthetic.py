@@ -6,8 +6,8 @@ import pickle
 import html
 from bs4 import BeautifulSoup
 from collections import Counter, defaultdict
-from utils import get_file_attribute
-from evaluate_synthetic_utils import text_f1
+from evaporate.utils import get_file_attribute
+from evaporate.evaluate_synthetic_utils import text_f1
 
 
 # Compute recall from two sets

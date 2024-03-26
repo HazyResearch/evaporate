@@ -23,15 +23,13 @@ warnings.filterwarnings("ignore", category=UserWarning, module="bs4")
 warnings.filterwarnings("ignore", category=UserWarning, module="BeautifulSoup")
 warnings.filterwarnings("ignore", category=UserWarning, module="lxml")
 
-from prompts import (METADATA_GENERATION_FOR_FIELDS, EXTRA_PROMPT, METADATA_EXTRACTION_WITH_LM, METADATA_EXTRACTION_WITH_LM_ZERO_SHOT, IS_VALID_ATTRIBUTE, Step,)
-from utils import apply_prompt, get_file_attribute
-from evaluate_profiler import get_topk_scripts_per_field, evaluate
-from profiler_utils import filter_file2chunks, check_vs_train_extractions, clean_function_predictions
+from evaporate.prompts import (METADATA_GENERATION_FOR_FIELDS, EXTRA_PROMPT, METADATA_EXTRACTION_WITH_LM_CONTEXT, METADATA_EXTRACTION_WITH_LM_ZERO_SHOT, IS_VALID_ATTRIBUTE, Step,)
+from evaporate.utils import apply_prompt, get_file_attribute
+from evaporate.evaluate_profiler import get_topk_scripts_per_field, evaluate
+from evaporate.profiler_utils import filter_file2chunks, check_vs_train_extractions, clean_function_predictions
 
 import sys
-sys.path.append(f"./evaporate/weak_supervision/")
-sys.path.append(f"./weak_supervision/")
-from run_ws import run_ws
+from evaporate.weak_supervision.run_ws import run_ws
 
 class TimeoutException(Exception): pass
 
@@ -181,9 +179,8 @@ def combine_extractions(
                     final_extractions[file] = str(Counter(extractions).most_common(1)[0][0])
                 else:
                     final_extractions[file] = pred
-
     if train_extractions:
-        final_extractions = check_vs_train_extractions(train_extractions, final_extractions, gold_key)
+        final_extractions = check_vs_train_extractions(train_extractions, final_extractions, gold_key, attribute = attribute)
     
     return final_extractions, total_tokens_prompted
 
@@ -463,12 +460,6 @@ def get_model_extractions(
     overwrite_cache=False,
     collecting_preds=False,
 ):
-    if(type(manifest_session) == dict and manifest_session['__name'] == "gold_extraction_file"):
-        extractions = {}
-        for file in sample_files:
-            extractions[file] = manifest_session[attribute][file]
-        return extractions, 0, False
-        
     num_errors = 0
     total_prompts = 0
     total_tokens_prompted = 0
@@ -491,7 +482,7 @@ def get_model_extractions(
             if "flan" in model_name:
                 PROMPTS = METADATA_EXTRACTION_WITH_LM_ZERO_SHOT
             else:
-                PROMPTS = METADATA_EXTRACTION_WITH_LM
+                PROMPTS = METADATA_EXTRACTION_WITH_LM_CONTEXT
 
             if has_context_length_error:
                     chunk = trim_chunks(chunk, attribute)
